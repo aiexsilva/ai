@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "634529947719",
+    "project_id": "route-finder-bb0fa",
+    "storage_bucket": "route-finder-bb0fa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:634529947719:android:479fcd0d8fd49fc6609162",
+        "android_client_info": {
+          "package_name": "app.edjd.route_finder"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "634529947719-2j6br6figf87rkg8bdc77vuuj92uif87.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHh1BWsN7N9gicdshiB6kXMYNvD0SMmWU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "634529947719-2j6br6figf87rkg8bdc77vuuj92uif87.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "634529947719-mueidionsg467ahl6hnuqlit9vdndk11.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.routeFinder"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
