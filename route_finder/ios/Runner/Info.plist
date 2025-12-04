@@ -48,8 +48,7 @@
 
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We need your location to generate routes.</string>
-
-
+	
   <key>NSLocalNetworkUsageDescription</key>
   <string>Allow Flutter tools to find the Dart VM over your local network</string>
   <key>NSBonjourServices</key>

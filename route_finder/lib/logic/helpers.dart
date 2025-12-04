@@ -1,5 +1,7 @@
 // lib/utils/navigator_creator.dart
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:route_finder/logic/models.dart';
 
 /// Available built-in transition animations.
 enum NavigationAnimation {
@@ -132,83 +134,89 @@ class NavigatorCreator {
       barrierDismissible: barrierDismissible,
       maintainState: maintainState,
       fullscreenDialog: fullscreenDialog,
-      transitionsBuilder: (context, animationPrimary, secondaryAnimation, child) {
-        final curved = CurvedAnimation(parent: animationPrimary, curve: curve);
-
-        switch (animation) {
-          case NavigationAnimation.slideFromRight:
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1.0, 0.0),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
+      transitionsBuilder:
+          (context, animationPrimary, secondaryAnimation, child) {
+            final curved = CurvedAnimation(
+              parent: animationPrimary,
+              curve: curve,
             );
 
-          case NavigationAnimation.slideFromLeft:
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(-1.0, 0.0),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
-            );
+            switch (animation) {
+              case NavigationAnimation.slideFromRight:
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                );
 
-          case NavigationAnimation.slideFromBottom:
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.0, 1.0),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
-            );
+              case NavigationAnimation.slideFromLeft:
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(-1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                );
 
-          case NavigationAnimation.slideFromTop:
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.0, -1.0),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
-            );
+              case NavigationAnimation.slideFromBottom:
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 1.0),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                );
 
-          case NavigationAnimation.fade:
-            return FadeTransition(
-              opacity: animationPrimary.drive(CurveTween(curve: curve)),
-              child: child,
-            );
+              case NavigationAnimation.slideFromTop:
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, -1.0),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                );
 
-          case NavigationAnimation.scale:
-            return ScaleTransition(
-              scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
-              child: FadeTransition(
-                opacity: animationPrimary.drive(CurveTween(curve: const Interval(0.0, 0.9))),
-                child: child,
-              ),
-            );
+              case NavigationAnimation.fade:
+                return FadeTransition(
+                  opacity: animationPrimary.drive(CurveTween(curve: curve)),
+                  child: child,
+                );
 
-          case NavigationAnimation.rotate:
-            return RotationTransition(
-              turns: Tween<double>(begin: 0.15, end: 0.0).animate(curved),
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
-                child: child,
-              ),
-            );
+              case NavigationAnimation.scale:
+                return ScaleTransition(
+                  scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
+                  child: FadeTransition(
+                    opacity: animationPrimary.drive(
+                      CurveTween(curve: const Interval(0.0, 0.9)),
+                    ),
+                    child: child,
+                  ),
+                );
 
-          case NavigationAnimation.fadeScale:
-            return FadeTransition(
-              opacity: animationPrimary.drive(CurveTween(curve: curve)),
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
-                child: child,
-              ),
-            );
+              case NavigationAnimation.rotate:
+                return RotationTransition(
+                  turns: Tween<double>(begin: 0.15, end: 0.0).animate(curved),
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+                    child: child,
+                  ),
+                );
 
-          case NavigationAnimation.none:
-            return child;
-        }
-      },
+              case NavigationAnimation.fadeScale:
+                return FadeTransition(
+                  opacity: animationPrimary.drive(CurveTween(curve: curve)),
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+                    child: child,
+                  ),
+                );
+
+              case NavigationAnimation.none:
+                return child;
+            }
+          },
     );
   }
 }
@@ -224,18 +232,17 @@ extension NavigatorCreatorExt on BuildContext {
     bool maintainState = true,
     bool opaque = true,
     bool fullscreenDialog = false,
-  }) =>
-      NavigatorCreator.push<T>(
-        this,
-        page,
-        animation: animation,
-        duration: duration,
-        curve: curve,
-        settings: settings,
-        maintainState: maintainState,
-        opaque: opaque,
-        fullscreenDialog: fullscreenDialog,
-      );
+  }) => NavigatorCreator.push<T>(
+    this,
+    page,
+    animation: animation,
+    duration: duration,
+    curve: curve,
+    settings: settings,
+    maintainState: maintainState,
+    opaque: opaque,
+    fullscreenDialog: fullscreenDialog,
+  );
 
   Future<T?> pushReplacementAnimated<T, TO>(
     Widget page, {
@@ -246,23 +253,59 @@ extension NavigatorCreatorExt on BuildContext {
     bool maintainState = true,
     bool opaque = true,
     bool fullscreenDialog = false,
-  }) =>
-      NavigatorCreator.pushReplacement<T, TO>(
-        this,
-        page,
-        animation: animation,
-        duration: duration,
-        curve: curve,
-        settings: settings,
-        maintainState: maintainState,
-        opaque: opaque,
-        fullscreenDialog: fullscreenDialog,
-      );
+  }) => NavigatorCreator.pushReplacement<T, TO>(
+    this,
+    page,
+    animation: animation,
+    duration: duration,
+    curve: curve,
+    settings: settings,
+    maintainState: maintainState,
+    opaque: opaque,
+    fullscreenDialog: fullscreenDialog,
+  );
 
-  void popAnimated<T extends Object?>([T? result]) => NavigatorCreator.pop<T>(this, result);
+  void popAnimated<T extends Object?>([T? result]) =>
+      NavigatorCreator.pop<T>(this, result);
 }
 
 bool isValidEmail(String email) {
   final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
   return emailRegex.hasMatch(email);
+}
+
+Future<Position> getCurrentLocation() async {
+  bool serviceEnabled;
+  LocationPermission permission;
+
+  serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  if (!serviceEnabled) {
+    return Future.error('Location services are disabled.');
+  }
+
+  permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied) {
+      return Future.error('Location permissions are denied');
+    }
+  }
+
+  if (permission == LocationPermission.deniedForever) {
+    return Future.error(
+      'Location permissions are permanently denied, we cannot request permissions.',
+    );
+  }
+
+  return await Geolocator.getCurrentPosition();
+}
+
+extension CapitalizeFirst on String {
+  String capitalizeFirst() => this[0].toUpperCase() + this.substring(1);
+  String capitalizeFirstLetters() =>
+      split(" ").map((e) => e.capitalizeFirst()).join(" ");
+}
+
+double calculateDistance(Coordinate start, Coordinate end) {
+  return Geolocator.distanceBetween(start.lat, start.lng, end.lat, end.lng);
 }

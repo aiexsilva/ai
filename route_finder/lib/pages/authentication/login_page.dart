@@ -89,31 +89,11 @@ class _LoginPageState extends State<LoginPage> {
                               weightOverride: FontWeight.w600,
                               colorOverride: Colors.grey,
                             ),
-                            autoCloseDuration: const Duration(seconds: 4),
+                            autoCloseDuration: const Duration(seconds: 2),
                             dragToClose: true,
                           );
                           return;
                         }
-
-                        toastification.show(
-                          context: context,
-                          type: ToastificationType.success,
-                          title: AppText(
-                            'Login successful!',
-                            variant: AppTextVariant.title,
-                            weightOverride: FontWeight.w600,
-                          ),
-                          description: AppText(
-                            'You\'ll be redirected shortly.',
-                            variant: AppTextVariant.label,
-                            weightOverride: FontWeight.w600,
-                            colorOverride: Colors.grey,
-                          ),
-                          autoCloseDuration: const Duration(seconds: 4),
-                          dragToClose: true,
-                        );
-
-                        await Future.delayed(const Duration(seconds: 4));
 
                         context.pushAnimated(const DashboardPage());
                       },

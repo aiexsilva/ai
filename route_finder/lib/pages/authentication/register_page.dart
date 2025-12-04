@@ -5,7 +5,6 @@ import 'package:route_finder/logic/firebase_helper.dart';
 import 'package:route_finder/logic/helpers.dart';
 import 'package:route_finder/pages/authentication/login_page.dart';
 import 'package:route_finder/pages/dashboard/dashboard_page.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:toastification/toastification.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -147,26 +146,6 @@ class _RegisterPageState extends State<RegisterPage> {
                           );
                           return;
                         }
-
-                        toastification.show(
-                          context: context,
-                          type: ToastificationType.success,
-                          title: AppText(
-                            'Sign up successful!',
-                            variant: AppTextVariant.title,
-                            weightOverride: FontWeight.w600,
-                          ),
-                          description: AppText(
-                            'You\'ll be redirected shortly.',
-                            variant: AppTextVariant.label,
-                            weightOverride: FontWeight.w600,
-                            colorOverride: Colors.grey,
-                          ),
-                          autoCloseDuration: const Duration(seconds: 4),
-                          dragToClose: true,
-                        );
-
-                        await Future.delayed(const Duration(seconds: 4));
 
                         context.pushAnimated(const DashboardPage());
                       },

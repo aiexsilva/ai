@@ -1,7 +1,4 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:route_finder/components/components.dart';
 import 'package:route_finder/logic/helpers.dart';
@@ -29,6 +26,12 @@ class _LandingPageState extends State<LandingPage>
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[200],
@@ -38,8 +41,6 @@ class _LandingPageState extends State<LandingPage>
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // // ShadowedLottie(name: "logo", height: 120,),
-            // // SizedBox(height: AppSpacings.xxl),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacings.lg),

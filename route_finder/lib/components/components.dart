@@ -16,6 +16,7 @@ const Color kAccent = Color(0xFF1AD598);
 const Color kBgLight = Color(0xFFFFFFFF);
 const Color kSurfaceLight = Color(0xFFF6F8FF);
 const Color kTextPrimary = Color(0xFF0F1724);
+const Color kTextMuted = Color(0xFF6B7280);
 const double kRadiusMd = 12.0;
 
 /// Small helper for marker data
@@ -56,7 +57,7 @@ class AppButton extends StatefulWidget {
   final BorderRadius? borderRadius;
 
   const AppButton({
-    Key? key,
+    super.key,
     required this.label,
     this.onTap,
     this.variant = AppButtonVariant.primary,
@@ -68,7 +69,7 @@ class AppButton extends StatefulWidget {
     this.width,
     this.borderRadius,
     this.fullWidth = true,
-  }) : super(key: key);
+  });
 
   @override
   State<AppButton> createState() => _AppButtonState();
@@ -236,12 +237,12 @@ class AppChip extends StatelessWidget {
   final bool selected;
   final Color? color;
   const AppChip({
-    Key? key,
+    super.key,
     required this.label,
     this.onDeleted,
     this.selected = false,
     this.color,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -292,14 +293,14 @@ class SearchChipsBar extends StatefulWidget {
   final String placeholder;
 
   const SearchChipsBar({
-    Key? key,
+    super.key,
     this.initialChips = const [],
     this.suggestions = const [],
     this.onChipAdded,
     this.onChipRemoved,
     this.onSubmitted,
     this.placeholder = 'Procura temas — ex.: arte, história, comida',
-  }) : super(key: key);
+  });
 
   @override
   State<SearchChipsBar> createState() => _SearchChipsBarState();
@@ -371,7 +372,7 @@ class _SearchChipsBarState extends State<SearchChipsBar> {
                     child: const Icon(LucideIcons.x300),
                   ),
             filled: true,
-            fillColor: kSurfaceLight,
+            fillColor: kBgLight,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 14,
@@ -389,28 +390,24 @@ class _SearchChipsBarState extends State<SearchChipsBar> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  ..._filteredSuggestions
-                      .map(
-                        (s) => GestureDetector(
-                          onTap: () {
-                            setState(() => _chips.add(s));
-                            widget.onChipAdded?.call(s);
-                            setState(() => _filteredSuggestions.remove(s));
-                            _ctrl.clear();
-                            _focus.requestFocus();
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(
-                              right: AppSpacings.md,
-                            ),
-                            child: Chip(
-                              backgroundColor: Colors.white,
-                              label: Text(s),
-                            ),
-                          ),
+                  ..._filteredSuggestions.map(
+                    (s) => GestureDetector(
+                      onTap: () {
+                        setState(() => _chips.add(s));
+                        widget.onChipAdded?.call(s);
+                        setState(() => _filteredSuggestions.remove(s));
+                        _ctrl.clear();
+                        _focus.requestFocus();
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: AppSpacings.md),
+                        child: Chip(
+                          backgroundColor: Colors.white,
+                          label: Text(s),
                         ),
-                      )
-                      .toList(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -446,6 +443,7 @@ class _SearchChipsBarState extends State<SearchChipsBar> {
                   variant: AppButtonVariant.outline,
                   size: AppButtonSize.small,
                   onTap: () => setState(() {
+                    _chips.map((c) => _removeChip(c));
                     _chips.clear();
                   }),
                 ),
@@ -470,13 +468,13 @@ class RadiusSlider extends StatelessWidget {
   final int divisions;
 
   const RadiusSlider({
-    Key? key,
+    super.key,
     required this.valueKm,
     required this.onChanged,
     this.minKm = 0.5,
     this.maxKm = 20,
     this.divisions = 195, // step 0.1 -> (20-0.5)/0.1 = 195
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -504,274 +502,6 @@ class RadiusSlider extends StatelessWidget {
   }
 }
 
-// /* ---------------------------
-//    MockMapView
-//    - lightweight custom painter that draws a polyline + markers
-//    --------------------------- */
-
-// class MockMapView extends StatefulWidget {
-//   final List<Coordinate> polyline;
-//   final List<MapMarker> markers;
-//   final void Function(String markerId)? onMarkerTap;
-//   final bool showCenterButton;
-
-//   const MockMapView({
-//     Key? key,
-//     this.polyline = const [],
-//     this.markers = const [],
-//     this.onMarkerTap,
-//     this.showCenterButton = true,
-//   }) : super(key: key);
-
-//   @override
-//   State<MockMapView> createState() => _MockMapViewState();
-// }
-
-// class _MockMapViewState extends State<MockMapView>
-//     with SingleTickerProviderStateMixin {
-//   List<Offset> _markerOffsets = [];
-//   late AnimationController _anim;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _anim = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 800),
-//     )..forward();
-//   }
-
-//   @override
-//   void dispose() {
-//     _anim.dispose();
-//     super.dispose();
-//   }
-
-//   Offset _latLngToOffset(
-//     Coordinate p,
-//     Size size,
-//     LatLngBounds bounds,
-//     EdgeInsets pad,
-//   ) {
-//     final w = size.width - pad.left - pad.right;
-//     final h = size.height - pad.top - pad.bottom;
-//     final latRange = (bounds.latMax - bounds.latMin).abs();
-//     final lngRange = (bounds.lngMax - bounds.lngMin).abs();
-//     final x =
-//         ((p.lng - bounds.lngMin) / (lngRange == 0 ? 1 : lngRange)) * w +
-//         pad.left;
-//     final y =
-//         ((bounds.latMax - p.lat) / (latRange == 0 ? 1 : latRange)) * h +
-//         pad.top;
-//     return Offset(x, y);
-//   }
-
-//   LatLngBounds _computeBounds() {
-//     final all = <Coordinate>[];
-//     all.addAll(widget.polyline);
-//     widget.markers.forEach((m) => all.add(m.coord));
-//     if (all.isEmpty) {
-//       return LatLngBounds(latMin: 0, latMax: 1, lngMin: 0, lngMax: 1);
-//     }
-//     double latMin = all.first.lat, latMax = all.first.lat;
-//     double lngMin = all.first.lng, lngMax = all.first.lng;
-//     for (final p in all) {
-//       if (p.lat < latMin) latMin = p.lat;
-//       if (p.lat > latMax) latMax = p.lat;
-//       if (p.lng < lngMin) lngMin = p.lng;
-//       if (p.lng > lngMax) lngMax = p.lng;
-//     }
-//     // add padding if zero range
-//     if ((latMax - latMin).abs() < 0.0001) {
-//       latMin -= 0.001;
-//       latMax += 0.001;
-//     }
-//     if ((lngMax - lngMin).abs() < 0.0001) {
-//       lngMin -= 0.001;
-//       lngMax += 0.001;
-//     }
-//     return LatLngBounds(
-//       latMin: latMin,
-//       latMax: latMax,
-//       lngMin: lngMin,
-//       lngMax: lngMax,
-//     );
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final pad = const EdgeInsets.all(16);
-//     return LayoutBuilder(
-//       builder: (context, constraints) {
-//         final size = Size(constraints.maxWidth, constraints.maxHeight);
-//         final bounds = _computeBounds();
-//         _markerOffsets = widget.markers
-//             .map((m) => _latLngToOffset(m.coord, size, bounds, pad))
-//             .toList();
-
-//         return GestureDetector(
-//           onTapUp: (details) {
-//             final tap = details.localPosition;
-//             for (int i = 0; i < _markerOffsets.length; i++) {
-//               final dist = (tap - _markerOffsets[i]).distance;
-//               if (dist < 20) {
-//                 widget.onMarkerTap?.call(widget.markers[i].id);
-//                 return;
-//               }
-//             }
-//           },
-//           child: Stack(
-//             children: [
-//               CustomPaint(
-//                 size: size,
-//                 painter: _MockMapPainter(
-//                   polyline: widget.polyline,
-//                   markers: _markerOffsets,
-//                   animationValue: _anim.value,
-//                 ),
-//               ),
-//               if (widget.showCenterButton)
-//                 Positioned(
-//                   right: 12,
-//                   bottom: 12,
-//                   child: FloatingActionButton.small(
-//                     onPressed: () {
-//                       ScaffoldMessenger.of(context).showSnackBar(
-//                         const SnackBar(content: Text('Centrar na rota (mock)')),
-//                       );
-//                     },
-//                     child: const Icon(LucideIcons.mapPin300, size: 18),
-//                   ),
-//                 ),
-//             ],
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
-
-// class LatLngBounds {
-//   final double latMin;
-//   final double latMax;
-//   final double lngMin;
-//   final double lngMax;
-//   const LatLngBounds({
-//     required this.latMin,
-//     required this.latMax,
-//     required this.lngMin,
-//     required this.lngMax,
-//   });
-// }
-
-// class _MockMapPainter extends CustomPainter {
-//   final List<Coordinate> polyline;
-//   final List<Offset> markers;
-//   final double animationValue;
-
-//   _MockMapPainter({
-//     this.polyline = const [],
-//     this.markers = const [],
-//     this.animationValue = 1.0,
-//   });
-
-//   @override
-//   void paint(Canvas canvas, Size size) {
-//     // background
-//     final rect = Offset.zero & size;
-//     final bgPaint = Paint()
-//       ..shader = LinearGradient(
-//         colors: [kSurfaceLight, kBgLight],
-//       ).createShader(rect);
-//     canvas.drawRect(rect, bgPaint);
-
-//     // grid / faux tiles
-//     final gridPaint = Paint()
-//       ..color = Colors.grey.withOpacity(0.06)
-//       ..strokeWidth = 1;
-//     const step = 40.0;
-//     for (double x = 0; x < size.width; x += step) {
-//       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-//     }
-//     for (double y = 0; y < size.height; y += step) {
-//       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-//     }
-
-//     // draw polyline (we assume polyline already in LatLng screen units is mapped
-//     // upstream by MockMapView; for demo we draw a curved path)
-//     if (polyline.length >= 2) {
-//       final path = Path();
-//       // simple normalized drawing across canvas
-//       for (int i = 0; i < polyline.length; i++) {
-//         final t = i / (polyline.length - 1);
-//         final x = 20 + (size.width - 40) * t;
-//         final y =
-//             size.height / 2 + math.sin(t * math.pi * 2) * (size.height * 0.18);
-//         if (i == 0) {
-//           path.moveTo(x, y);
-//         } else {
-//           path.lineTo(x, y);
-//         }
-//       }
-
-//       final pm = path.computeMetrics().toList();
-//       if (pm.isNotEmpty) {
-//         final metric = pm.first;
-//         final extract = metric.extractPath(0, metric.length * animationValue);
-//         final paint = Paint()
-//           ..color = kPrimary
-//           ..strokeWidth = 4
-//           ..style = PaintingStyle.stroke
-//           ..strokeCap = StrokeCap.round;
-//         canvas.drawPath(extract, paint);
-
-//         // draw glowing beneath
-//         final glow = Paint()
-//           ..color = kPrimary.withOpacity(0.12)
-//           ..strokeWidth = 12
-//           ..style = PaintingStyle.stroke
-//           ..strokeCap = StrokeCap.round;
-//         canvas.drawPath(extract, glow);
-//       }
-//     }
-
-//     // markers
-//     for (int i = 0; i < markers.length; i++) {
-//       final off = markers[i];
-//       final circlePaint = Paint()..color = Colors.white;
-//       final border = Paint()..color = kPrimary;
-//       canvas.drawCircle(off, 16, circlePaint);
-//       canvas.drawCircle(
-//         off,
-//         16,
-//         border
-//           ..strokeWidth = 2
-//           ..style = PaintingStyle.stroke,
-//       );
-//       // label
-//       final tp = TextPainter(
-//         text: TextSpan(
-//           text: '${i + 1}',
-//           style: const TextStyle(
-//             color: kPrimary,
-//             fontSize: 12,
-//             fontWeight: FontWeight.bold,
-//           ),
-//         ),
-//         textDirection: TextDirection.ltr,
-//       )..layout();
-//       tp.paint(canvas, off - Offset(tp.width / 2, tp.height / 2));
-//     }
-//   }
-
-//   @override
-//   bool shouldRepaint(covariant _MockMapPainter old) {
-//     return old.animationValue != animationValue ||
-//         old.markers.length != markers.length ||
-//         old.polyline.length != polyline.length;
-//   }
-// }
-
 /* ---------------------------
    POICard
    --------------------------- */
@@ -785,7 +515,7 @@ class POICard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const POICard({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     this.imageUrl,
@@ -793,7 +523,7 @@ class POICard extends StatelessWidget {
     this.openNow = false,
     this.tags = const [],
     this.onTap,
-  }) : super(key: key);
+  });
 
   Widget _buildTags() {
     return Wrap(
@@ -945,11 +675,11 @@ class AppFAB extends StatefulWidget {
   final double size;
 
   const AppFAB({
-    Key? key,
+    super.key,
     required this.onPressed,
     this.child,
     this.size = 56.0,
-  }) : super(key: key);
+  });
 
   @override
   State<AppFAB> createState() => _AppFABState();
@@ -1022,11 +752,11 @@ class SkeletonBox extends StatefulWidget {
   final BorderRadius borderRadius;
 
   const SkeletonBox({
-    Key? key,
+    super.key,
     this.width = double.infinity,
     required this.height,
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
-  }) : super(key: key);
+  });
 
   @override
   State<SkeletonBox> createState() => _SkeletonBoxState();
@@ -1090,11 +820,11 @@ class RatingStars extends StatefulWidget {
   final double size;
 
   const RatingStars({
-    Key? key,
+    super.key,
     this.initial = 0,
     this.onChanged,
     this.size = 28,
-  }) : super(key: key);
+  });
 
   @override
   State<RatingStars> createState() => _RatingStarsState();
@@ -1143,8 +873,7 @@ class ImageCarousel extends StatefulWidget {
   final List<String> images;
   final double height;
 
-  const ImageCarousel({Key? key, required this.images, this.height = 200})
-    : super(key: key);
+  const ImageCarousel({super.key, required this.images, this.height = 200});
 
   @override
   State<ImageCarousel> createState() => _ImageCarouselState();
@@ -1213,12 +942,12 @@ class LottieLoader extends StatelessWidget {
   final bool loop;
 
   const LottieLoader({
-    Key? key,
+    super.key,
     required this.asset,
     this.width = 120,
     this.height = 120,
     this.loop = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1285,7 +1014,7 @@ class AppText extends StatelessWidget {
 
   const AppText(
     this.text, {
-    Key? key,
+    super.key,
     this.variant = AppTextVariant.body,
     this.colorOverride,
     this.weightOverride,
@@ -1294,7 +1023,7 @@ class AppText extends StatelessWidget {
     this.overflow = TextOverflow.visible,
     this.softWrap = true,
     this.style,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1313,7 +1042,7 @@ class AppText extends StatelessWidget {
       fontWeight: weightOverride ?? defaultWeight,
       color: effectiveColor,
       height: _lineHeightFor(fontSize),
-      fontFamily: 'Inter',
+      fontFamily: 'Nunito',
     );
 
     final TextStyle finalStyle = (style != null) ? base.merge(style) : base;
@@ -1544,7 +1273,7 @@ class _AppTextInputState extends State<AppTextInput> {
                       color: kTextPrimary,
                       fontSize: 16,
                       height: 1.5,
-                      fontFamily: 'Inter',
+                      fontFamily: 'Nunito',
                       fontWeight: FontWeight.w400,
                     ),
                     decoration: InputDecoration(
@@ -1555,7 +1284,7 @@ class _AppTextInputState extends State<AppTextInput> {
                         color: Colors.grey.withValues(alpha: 0.6),
                         fontSize: 16,
                         height: 1.5,
-                        fontFamily: 'Inter',
+                        fontFamily: 'Nunito',
                         fontWeight: FontWeight.w400,
                       ),
                       contentPadding: EdgeInsets.zero,
@@ -1618,7 +1347,7 @@ class AppCodeInput extends StatefulWidget {
   final TextInputType keyboard;
 
   const AppCodeInput({
-    Key? key,
+    super.key,
     required this.label,
     required this.controller,
     this.length = 6,
@@ -1626,7 +1355,7 @@ class AppCodeInput extends StatefulWidget {
     this.error,
     this.onCompleted,
     this.keyboard = TextInputType.number,
-  }) : super(key: key);
+  });
 
   @override
   State<AppCodeInput> createState() => _AppCodeInputState();
@@ -1854,7 +1583,7 @@ class _AppCodeInputState extends State<AppCodeInput> {
                                 : kTextPrimary,
                             fontSize: 18,
                             height: 1.5,
-                            fontFamily: 'Inter',
+                            fontFamily: 'Nunito',
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -1904,7 +1633,7 @@ class ShadowedLottie extends StatefulWidget {
   final double fallbackHeight;
 
   const ShadowedLottie({
-    Key? key,
+    super.key,
     required this.name,
     this.height,
     this.width,
@@ -1914,7 +1643,7 @@ class ShadowedLottie extends StatefulWidget {
     this.fit = BoxFit.contain,
     this.shadowColor = Colors.black,
     this.fallbackHeight = 200,
-  }) : super(key: key);
+  });
 
   @override
   State<ShadowedLottie> createState() => _ShadowedLottieState();
@@ -1942,9 +1671,7 @@ class _ShadowedLottieState extends State<ShadowedLottie>
   void _onLoaded(LottieComposition composition) {
     if (!_started) {
       _started = true;
-      if (composition.duration != null) {
-        _controller.duration = composition.duration;
-      }
+      _controller.duration = composition.duration;
       _controller.repeat();
     }
   }
@@ -2236,7 +1963,10 @@ class _TripMapCardState extends State<TripMapCard> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.86, initialPage: _selectedIndex);
+    _pageController = PageController(
+      viewportFraction: 0.86,
+      initialPage: _selectedIndex,
+    );
     _initMap();
   }
 
@@ -2282,7 +2012,9 @@ class _TripMapCardState extends State<TripMapCard> {
 
       final origin = pois.first.coordinate;
       final waypoints = <Coordinate>[];
-      for (var i = 1; i < pois.length; i++) waypoints.add(pois[i].coordinate);
+      for (var i = 1; i < pois.length; i++) {
+        waypoints.add(pois[i].coordinate);
+      }
 
       List<LatLng> routePoints = [];
 
@@ -2294,7 +2026,9 @@ class _TripMapCardState extends State<TripMapCard> {
           widget.googleApiKey,
         );
 
-        final decoded = result.polyline.map((c) => LatLng(c.lat, c.lng)).toList();
+        final decoded = result.polyline
+            .map((c) => LatLng(c.lat, c.lng))
+            .toList();
         if (decoded.isNotEmpty) {
           routePoints = decoded;
           _routeOptimizedOrder[routeIndex] = result.optimizedWaypointOrder;
@@ -2318,18 +2052,24 @@ class _TripMapCardState extends State<TripMapCard> {
       if (bounds != null) _routeBounds[routeIndex] = bounds;
 
       // add polyline (initial width depends on selection)
-      _polylines.add(Polyline(
-        polylineId: PolylineId('route_$routeIndex'),
-        color: _palette[routeIndex % _palette.length],
-        width: (_selectedIndex == routeIndex) ? 6 : 4,
-        points: routePoints,
-        jointType: JointType.round,
-        startCap: Cap.roundCap,
-        endCap: Cap.roundCap,
-      ));
+      _polylines.add(
+        Polyline(
+          polylineId: PolylineId('route_$routeIndex'),
+          color: _palette[routeIndex % _palette.length],
+          width: (_selectedIndex == routeIndex) ? 6 : 4,
+          points: routePoints,
+          jointType: JointType.round,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      );
 
       // pre-build markers for this route (cached) but do NOT add to _markers yet
-      _routeCachedMarkers[routeIndex] = _buildMarkersForRoute(route, routeIndex, _routeOptimizedOrder[routeIndex] ?? []);
+      _routeCachedMarkers[routeIndex] = _buildMarkersForRoute(
+        route,
+        routeIndex,
+        _routeOptimizedOrder[routeIndex] ?? [],
+      );
 
       allPoints.addAll(routePoints);
       setState(() {}); // update progressively so polylines appear as they come
@@ -2346,7 +2086,9 @@ class _TripMapCardState extends State<TripMapCard> {
         await _fitCameraToPolyline(mapController!, allPoints);
       } else {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mapController != null) _fitCameraToPolyline(mapController!, allPoints);
+          if (mapController != null) {
+            _fitCameraToPolyline(mapController!, allPoints);
+          }
         });
       }
     }
@@ -2355,8 +2097,17 @@ class _TripMapCardState extends State<TripMapCard> {
   Future<void> _prepareIcons() async {
     for (var i = 0; i < widget.route.length; i++) {
       final color = _palette[i % _palette.length];
-      _poiIcons[i] = await _createCircleBitmapDescriptor(borderColor: Colors.white, color, 40);
-      _startIcons[i] = await _createCircleBitmapDescriptor(Colors.white, 40, borderColor: color, borderWidth: 3);
+      _poiIcons[i] = await _createCircleBitmapDescriptor(
+        borderColor: Colors.white,
+        color,
+        40,
+      );
+      _startIcons[i] = await _createCircleBitmapDescriptor(
+        Colors.white,
+        40,
+        borderColor: color,
+        borderWidth: 3,
+      );
     }
   }
 
@@ -2378,7 +2129,11 @@ class _TripMapCardState extends State<TripMapCard> {
         ..color = borderColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = borderWidth;
-      canvas.drawCircle(Offset(radius, radius), radius - borderWidth / 2, borderPaint);
+      canvas.drawCircle(
+        Offset(radius, radius),
+        radius - borderWidth / 2,
+        borderPaint,
+      );
     }
 
     final picture = recorder.endRecording();
@@ -2388,7 +2143,11 @@ class _TripMapCardState extends State<TripMapCard> {
     return BitmapDescriptor.fromBytes(bytes);
   }
 
-  List<Marker> _buildMarkersForRoute(RouteModel route, int routeIndex, List<int> optimizedOrder) {
+  List<Marker> _buildMarkersForRoute(
+    RouteModel route,
+    int routeIndex,
+    List<int> optimizedOrder,
+  ) {
     final markers = <Marker>[];
     final pois = route.pointsofinterest;
     if (pois.isEmpty) return markers;
@@ -2399,41 +2158,58 @@ class _TripMapCardState extends State<TripMapCard> {
     // start
     final origin = pois.first.coordinate;
     if (_isValidLatLng(origin.lat, origin.lng)) {
-      markers.add(Marker(
-        markerId: MarkerId('r${routeIndex}_start'),
-        position: LatLng(origin.lat, origin.lng),
-        icon: colorStart ?? BitmapDescriptor.defaultMarker,
-        infoWindow: InfoWindow(title: route.name, snippet: 'Start'),
-        anchor: const Offset(0.5, 1.0),
-      ));
+      markers.add(
+        Marker(
+          markerId: MarkerId('r${routeIndex}_start'),
+          position: LatLng(origin.lat, origin.lng),
+          icon: colorStart ?? BitmapDescriptor.defaultMarker,
+          infoWindow: InfoWindow(title: route.name, snippet: 'Start'),
+          anchor: const Offset(0.5, 1.0),
+        ),
+      );
     }
 
     final intermediate = pois.sublist(1);
-    if (optimizedOrder.isNotEmpty && optimizedOrder.length == intermediate.length) {
-      for (var orderIndex = 0; orderIndex < optimizedOrder.length; orderIndex++) {
+    if (optimizedOrder.isNotEmpty &&
+        optimizedOrder.length == intermediate.length) {
+      for (
+        var orderIndex = 0;
+        orderIndex < optimizedOrder.length;
+        orderIndex++
+      ) {
         final originalWaypointIndex = optimizedOrder[orderIndex];
-        if (originalWaypointIndex < 0 || originalWaypointIndex >= intermediate.length) continue;
+        if (originalWaypointIndex < 0 ||
+            originalWaypointIndex >= intermediate.length) {
+          continue;
+        }
         final poi = intermediate[originalWaypointIndex];
         if (!_isValidLatLng(poi.coordinate.lat, poi.coordinate.lng)) continue;
-        markers.add(Marker(
-          markerId: MarkerId('r${routeIndex}_poi_${orderIndex + 1}'),
-          position: LatLng(poi.coordinate.lat, poi.coordinate.lng),
-          icon: colorPoi ?? BitmapDescriptor.defaultMarker,
-          infoWindow: InfoWindow(title: 'Stop ${orderIndex + 1}', snippet: poi.name),
-          anchor: const Offset(0.5, 0.5),
-        ));
+        markers.add(
+          Marker(
+            markerId: MarkerId('r${routeIndex}_poi_${orderIndex + 1}'),
+            position: LatLng(poi.coordinate.lat, poi.coordinate.lng),
+            icon: colorPoi ?? BitmapDescriptor.defaultMarker,
+            infoWindow: InfoWindow(
+              title: 'Stop ${orderIndex + 1}',
+              snippet: poi.name,
+            ),
+            anchor: const Offset(0.5, 0.5),
+          ),
+        );
       }
     } else {
       for (var j = 0; j < intermediate.length; j++) {
         final poi = intermediate[j];
         if (!_isValidLatLng(poi.coordinate.lat, poi.coordinate.lng)) continue;
-        markers.add(Marker(
-          markerId: MarkerId('r${routeIndex}_poi_${j + 1}'),
-          position: LatLng(poi.coordinate.lat, poi.coordinate.lng),
-          icon: colorPoi ?? BitmapDescriptor.defaultMarker,
-          infoWindow: InfoWindow(title: 'Stop ${j + 1}', snippet: poi.name),
-          anchor: const Offset(0.5, 0.5),
-        ));
+        markers.add(
+          Marker(
+            markerId: MarkerId('r${routeIndex}_poi_${j + 1}'),
+            position: LatLng(poi.coordinate.lat, poi.coordinate.lng),
+            icon: colorPoi ?? BitmapDescriptor.defaultMarker,
+            infoWindow: InfoWindow(title: 'Stop ${j + 1}', snippet: poi.name),
+            anchor: const Offset(0.5, 0.5),
+          ),
+        );
       }
     }
 
@@ -2454,24 +2230,31 @@ class _TripMapCardState extends State<TripMapCard> {
         if (pois.isNotEmpty) {
           final start = pois.first;
           if (_isValidLatLng(start.coordinate.lat, start.coordinate.lng)) {
-            _markers.add(Marker(
-              markerId: MarkerId('r${_selectedIndex}_start_fb'),
-              position: LatLng(start.coordinate.lat, start.coordinate.lng),
-              icon: _startIcons[_selectedIndex] ?? BitmapDescriptor.defaultMarker,
-              infoWindow: InfoWindow(title: r.name, snippet: 'Start'),
-              anchor: const Offset(0.5, 1.0),
-            ));
+            _markers.add(
+              Marker(
+                markerId: MarkerId('r${_selectedIndex}_start_fb'),
+                position: LatLng(start.coordinate.lat, start.coordinate.lng),
+                icon:
+                    _startIcons[_selectedIndex] ??
+                    BitmapDescriptor.defaultMarker,
+                infoWindow: InfoWindow(title: r.name, snippet: 'Start'),
+                anchor: const Offset(0.5, 1.0),
+              ),
+            );
           }
           for (var j = 0; j < pois.length; j++) {
             final p = pois[j];
             if (!_isValidLatLng(p.coordinate.lat, p.coordinate.lng)) continue;
-            _markers.add(Marker(
-              markerId: MarkerId('r${_selectedIndex}_poi_fb_$j'),
-              position: LatLng(p.coordinate.lat, p.coordinate.lng),
-              icon: _poiIcons[_selectedIndex] ?? BitmapDescriptor.defaultMarker,
-              infoWindow: InfoWindow(title: 'Stop ${j + 1}', snippet: p.name),
-              anchor: const Offset(0.5, 0.5),
-            ));
+            _markers.add(
+              Marker(
+                markerId: MarkerId('r${_selectedIndex}_poi_fb_$j'),
+                position: LatLng(p.coordinate.lat, p.coordinate.lng),
+                icon:
+                    _poiIcons[_selectedIndex] ?? BitmapDescriptor.defaultMarker,
+                infoWindow: InfoWindow(title: 'Stop ${j + 1}', snippet: p.name),
+                anchor: const Offset(0.5, 0.5),
+              ),
+            );
           }
         }
       }
@@ -2491,17 +2274,20 @@ class _TripMapCardState extends State<TripMapCard> {
   void _rebuildPolylinesWithSelection() {
     _polylines.clear();
     for (var i = 0; i < widget.route.length; i++) {
-      final pts = _routePointsByIndex[i] ?? _polyPointsFromPOIs(widget.route[i]);
+      final pts =
+          _routePointsByIndex[i] ?? _polyPointsFromPOIs(widget.route[i]);
       if (pts.isEmpty) continue;
-      _polylines.add(Polyline(
-        polylineId: PolylineId('route_$i'),
-        color: _palette[i % _palette.length],
-        width: (i == _selectedIndex) ? 8 : 4,
-        points: pts,
-        jointType: JointType.round,
-        startCap: Cap.roundCap,
-        endCap: Cap.roundCap,
-      ));
+      _polylines.add(
+        Polyline(
+          polylineId: PolylineId('route_$i'),
+          color: _palette[i % _palette.length],
+          width: (i == _selectedIndex) ? 8 : 4,
+          points: pts,
+          jointType: JointType.round,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      );
     }
     setState(() {});
   }
@@ -2514,7 +2300,8 @@ class _TripMapCardState extends State<TripMapCard> {
       }
     }
     if (pts.length > 1) {
-      if (pts.first.latitude != pts.last.latitude || pts.first.longitude != pts.last.longitude) {
+      if (pts.first.latitude != pts.last.latitude ||
+          pts.first.longitude != pts.last.longitude) {
         // close loop
         pts.add(pts.first);
       }
@@ -2539,19 +2326,26 @@ class _TripMapCardState extends State<TripMapCard> {
 
     // animate to route bounds if available
     final bounds = _routeBounds[index];
-    if (bounds != null && mapController != null && _routePointsByIndex[index] != null) {
+    if (bounds != null &&
+        mapController != null &&
+        _routePointsByIndex[index] != null) {
       await _fitCameraToPolyline(mapController!, _routePointsByIndex[index]!);
     } else if (mapController != null) {
       // fallback center on first POI
       final r = widget.route[index];
       if (r.pointsofinterest.isNotEmpty) {
         final c = r.pointsofinterest.first.coordinate;
-        await mapController!.animateCamera(CameraUpdate.newLatLngZoom(LatLng(c.lat, c.lng), 14));
+        await mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(c.lat, c.lng), 14),
+        );
       }
     }
   }
 
-  Future<void> _fitCameraToPolyline(GoogleMapController controller, List<LatLng> points) async {
+  Future<void> _fitCameraToPolyline(
+    GoogleMapController controller,
+    List<LatLng> points,
+  ) async {
     if (points.isEmpty) return;
 
     double minLat = points.first.latitude, maxLat = points.first.latitude;
@@ -2573,7 +2367,10 @@ class _TripMapCardState extends State<TripMapCard> {
       maxLng += 0.001;
     }
 
-    final bounds = LatLngBounds(southwest: LatLng(minLat, minLng), northeast: LatLng(maxLat, maxLng));
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
 
     try {
       await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 28));
@@ -2605,18 +2402,29 @@ class _TripMapCardState extends State<TripMapCard> {
       minLng -= 0.0005;
       maxLng += 0.0005;
     }
-    return LatLngBounds(southwest: LatLng(minLat, minLng), northeast: LatLng(maxLat, maxLng));
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
   }
 
   CameraPosition _initial() {
-    if (widget.route.isEmpty) return const CameraPosition(target: LatLng(0, 0), zoom: 2);
+    if (widget.route.isEmpty) {
+      return const CameraPosition(target: LatLng(0, 0), zoom: 2);
+    }
     final first = widget.route.first;
     final pts = _polyPointsFromPOIs(first);
     if (pts.isEmpty) return const CameraPosition(target: LatLng(0, 0), zoom: 2);
     if (pts.length >= 2) {
       final a = pts[0];
       final b = pts[1];
-      return CameraPosition(target: LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2), zoom: 12);
+      return CameraPosition(
+        target: LatLng(
+          (a.latitude + b.latitude) / 2,
+          (a.longitude + b.longitude) / 2,
+        ),
+        zoom: 12,
+      );
     } else {
       return CameraPosition(target: pts.first, zoom: 13);
     }
@@ -2646,7 +2454,9 @@ class _TripMapCardState extends State<TripMapCard> {
                 mapController = controller;
                 if (!_loading && _selectedIndex >= 0) {
                   final pts = _routePointsByIndex[_selectedIndex];
-                  if (pts != null && pts.isNotEmpty) _fitCameraToPolyline(mapController!, pts);
+                  if (pts != null && pts.isNotEmpty) {
+                    _fitCameraToPolyline(mapController!, pts);
+                  }
                 }
               },
               zoomControlsEnabled: true,
@@ -2679,9 +2489,23 @@ class _TripMapCardState extends State<TripMapCard> {
                       final r = widget.route[i];
                       final selected = _selectedIndex == i;
                       final color = _palette[i % _palette.length];
-                      final thumbnail = r.pointsofinterest.isNotEmpty && r.pointsofinterest.first.imagePath.isNotEmpty
-                          ? Image.asset(r.pointsofinterest.first.imagePath, fit: BoxFit.cover, width: 110, height: double.infinity)
-                          : Container(width: 110, color: Colors.grey[200], child: const Icon(LucideIcons.mapPin300, color: Colors.grey));
+                      final thumbnail =
+                          r.pointsofinterest.isNotEmpty &&
+                              r.pointsofinterest.first.imagePath.isNotEmpty
+                          ? Image.asset(
+                              r.pointsofinterest.first.imagePath,
+                              fit: BoxFit.cover,
+                              width: 110,
+                              height: double.infinity,
+                            )
+                          : Container(
+                              width: 110,
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                LucideIcons.mapPin300,
+                                color: Colors.grey,
+                              ),
+                            );
 
                       return Padding(
                         padding: const EdgeInsets.only(right: 12),
@@ -2695,39 +2519,73 @@ class _TripMapCardState extends State<TripMapCard> {
                               borderRadius: BorderRadius.circular(kRadiusMd),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(selected ? 0.10 : 0.06),
+                                  color: Colors.black.withOpacity(
+                                    selected ? 0.10 : 0.06,
+                                  ),
                                   blurRadius: selected ? 12 : 8,
                                   offset: const Offset(0, 6),
                                 ),
                               ],
-                              border: selected ? Border.all(color: color.withOpacity(0.16)) : null,
+                              border: selected
+                                  ? Border.all(color: color.withOpacity(0.16))
+                                  : null,
                             ),
                             child: Row(
                               children: [
                                 ClipRRect(
-                                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(kRadiusMd)),
+                                  borderRadius: const BorderRadius.horizontal(
+                                    left: Radius.circular(kRadiusMd),
+                                  ),
                                   child: SizedBox(width: 110, child: thumbnail),
                                 ),
                                 Expanded(
                                   child: Padding(
                                     padding: const EdgeInsets.all(12),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        AppText(r.name, variant: AppTextVariant.title, style: const TextStyle(fontSize: 16)),
+                                        AppText(
+                                          r.name,
+                                          variant: AppTextVariant.title,
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
                                         const SizedBox(height: 6),
-                                        AppText('${r.pointsofinterest.length} stops • ${r.distance.toStringAsFixed(1)} km', variant: AppTextVariant.label, colorOverride: Colors.grey),
+                                        AppText(
+                                          '${r.pointsofinterest.length} stops • ${r.distance.toStringAsFixed(1)} km',
+                                          variant: AppTextVariant.label,
+                                          colorOverride: Colors.grey,
+                                        ),
                                         const SizedBox(height: 6),
                                         Row(
                                           children: [
-                                            Icon(LucideIcons.star300, size: 16, color: Colors.amber[700]),
+                                            Icon(
+                                              LucideIcons.star300,
+                                              size: 16,
+                                              color: Colors.amber[700],
+                                            ),
                                             const SizedBox(width: 6),
-                                            AppText(_avgRating(r).toStringAsFixed(1), variant: AppTextVariant.label),
+                                            AppText(
+                                              _avgRating(r).toStringAsFixed(1),
+                                              variant: AppTextVariant.label,
+                                            ),
                                             const Spacer(),
                                             Container(
-                                              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-                                              padding: const EdgeInsets.symmetric(horizontal: AppSpacings.md, vertical: AppSpacings.md),
-                                              child: AppText('Center', variant: AppTextVariant.label, colorOverride: color),
+                                              decoration: BoxDecoration(
+                                                color: color.withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: AppSpacings.md,
+                                                    vertical: AppSpacings.md,
+                                                  ),
+                                              child: AppText(
+                                                'Center',
+                                                variant: AppTextVariant.label,
+                                                colorOverride: color,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -2735,7 +2593,12 @@ class _TripMapCardState extends State<TripMapCard> {
                                         Expanded(
                                           child: SingleChildScrollView(
                                             scrollDirection: Axis.horizontal,
-                                            child: Row(children: r.keywords.take(5).map((k) => AppChip(label: k)).toList()),
+                                            child: Row(
+                                              children: r.keywords
+                                                  .take(5)
+                                                  .map((k) => AppChip(label: k))
+                                                  .toList(),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -2779,8 +2642,9 @@ Future<OptimizedRouteResult> fetchOptimizedRoundTripRoutesAPI(
   List<Coordinate> waypoints,
   String apiKey,
 ) async {
-  if (waypoints.isEmpty)
+  if (waypoints.isEmpty) {
     return OptimizedRouteResult(polyline: [origin], optimizedWaypointOrder: []);
+  }
 
   final url = Uri.parse(
     'https://routes.googleapis.com/directions/v2:computeRoutes',
@@ -2831,8 +2695,9 @@ Future<OptimizedRouteResult> fetchOptimizedRoundTripRoutesAPI(
 
   final data = jsonDecode(res.body) as Map<String, dynamic>;
   final routes = data['routes'] as List<dynamic>?;
-  if (routes == null || routes.isEmpty)
+  if (routes == null || routes.isEmpty) {
     return OptimizedRouteResult(polyline: [], optimizedWaypointOrder: []);
+  }
 
   final routeMap = routes[0] as Map<String, dynamic>;
 
@@ -2847,21 +2712,19 @@ Future<OptimizedRouteResult> fetchOptimizedRoundTripRoutesAPI(
     }
   } catch (_) {}
 
-  if (encoded == null) {
-    // try fallback nested keys
-    encoded = routeMap['overviewPolyline']?['points'] as String?;
-  }
+  encoded ??= routeMap['overviewPolyline']?['points'] as String?;
 
   List<Coordinate> polylinePoints = [];
-  if (encoded != null && encoded.isNotEmpty)
+  if (encoded != null && encoded.isNotEmpty) {
     polylinePoints = _decodePolyline(encoded);
+  }
 
   // extract optimized indices (try several key variants)
   List<int> optimized = [];
   dynamic optRaw;
-  if (routeMap.containsKey('optimizedIntermediateWaypointIndex'))
+  if (routeMap.containsKey('optimizedIntermediateWaypointIndex')) {
     optRaw = routeMap['optimizedIntermediateWaypointIndex'];
-  else if (routeMap.containsKey('optimized_intermediate_waypoint_index'))
+  } else if (routeMap.containsKey('optimized_intermediate_waypoint_index'))
     optRaw = routeMap['optimized_intermediate_waypoint_index'];
   else {
     for (final k in routeMap.keys) {

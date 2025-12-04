@@ -5,7 +5,6 @@ import heapq  #used for priority queue implementation
 import requests
 import info
 
-
 def dijkstra(graph, start_node, end_node):
     #will keep track of nodes so we can then reconstruct the path
     previous = {v: None for v in graph.keys()}
@@ -17,10 +16,13 @@ def dijkstra(graph, start_node, end_node):
 
     while queue:
         current_distance, current_node = heapq.heappop(queue)
+
         if current_node == end_node:
             break
+
         if current_distance > distances[current_node]:
             continue
+
         for neighbor, weight in graph[current_node]:
             distance = current_distance + weight
             if distance < distances[neighbor]:
@@ -29,15 +31,14 @@ def dijkstra(graph, start_node, end_node):
                 heapq.heappush(queue, (distance, neighbor))
 
     path = []
-    #take end node and backtrack using the previous dict
     current_node = end_node
-    #while current node isn't the starting one then add node to path array
+    
     while current_node != start_node:
         path.append(current_node)
         current_node = previous[current_node]
     path.append(start_node)
-    #path reverse to have to going from start to end instead of end to start
     path.reverse()
+    
     return distances[end_node], path
 
 def main():

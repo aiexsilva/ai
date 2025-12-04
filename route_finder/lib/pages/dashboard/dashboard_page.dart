@@ -1,12 +1,15 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:route_finder/components/components.dart';
 import 'package:route_finder/logic/firebase_helper.dart';
+import 'package:route_finder/logic/google_places_models.dart';
 import 'package:route_finder/logic/helpers.dart';
 import 'package:route_finder/logic/models.dart';
-import 'package:route_finder/pages/components_page.dart';
+
 import 'package:route_finder/pages/landing/landing_page.dart';
+import 'package:route_finder/pages/map_test.dart';
+import 'package:route_finder/pages/routes/route_creation.dart';
 import 'package:route_finder/pages/routes/routes_list_map_view_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -16,8 +19,33 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
-  List<String> _selectedChips = [];
+class _DashboardPageState extends State<DashboardPage>
+    with SingleTickerProviderStateMixin {
+  final List<String> _selectedChips = [];
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _animation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -0.05), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -0.05, end: 0.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.05), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.05, end: 0.0), weight: 1),
+    ]).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   List<RouteModel> get _routes => [
     RouteModel(
@@ -89,9 +117,17 @@ class _DashboardPageState extends State<DashboardPage> {
     ),
   ];
 
+  double _value = 2;
+  void _onChanged(double value) {
+    setState(() {
+      _value = value;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kSurfaceLight,
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         spacing: AppSpacings.md,
@@ -209,7 +245,9 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: AppSpacings.lg),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacings.lg),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacings.lg,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -241,14 +279,43 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                         if (_selectedChips.isNotEmpty) ...[
                           SizedBox(height: AppSpacings.lg),
+                          SizedBox(
+                            width: double.infinity,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.centerLeft,
+                              children: [
+                                AppText(
+                                  "Radius: ${_value.toStringAsFixed(1)}km",
+                                  variant: AppTextVariant.title,
+                                ),
+                                Positioned(
+                                  right: AppSpacings.lg,
+                                  child: Slider(
+                                    value: _value,
+                                    onChanged: _onChanged,
+                                    min: 1,
+                                    max: 10,
+                                    thumbColor: kPrimary,
+                                    activeColor: kPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: AppSpacings.lg),
                           AppButton(
                             label: "Generate Routes",
                             fullWidth: true,
-                            onTap: () {},
-                            leading: Icon(
-                              LucideIcons.wandSparkles300,
-                              size: 24,
-                              color: Colors.white,
+                            enabled: !_isLoading,
+                            onTap: _generateRoutes,
+                            leading: RotationTransition(
+                              turns: _animation,
+                              child: Icon(
+                                LucideIcons.wandSparkles300,
+                                size: 24,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
@@ -261,10 +328,12 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             Spacer(),
                             GestureDetector(
-                              onTap: () => context.pushAnimated(RoutesListMapViewPage(routes: _routes)),
+                              onTap: () => context.pushAnimated(
+                                RoutesListMapViewPage(routes: _routes),
+                              ),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.transparent,
+                                  color: kBgLight,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: Colors.grey[100] ?? Colors.grey,
@@ -288,8 +357,10 @@ class _DashboardPageState extends State<DashboardPage> {
                         SizedBox(height: AppSpacings.lg),
                         Column(
                           spacing: AppSpacings.lg,
-                          children: _routes.map((route) => RouteCard(route: route)).toList(),
-                        )
+                          children: _routes
+                              .map((route) => RouteCard(route: route))
+                              .toList(),
+                        ),
                       ],
                     ),
                   ),
@@ -300,5 +371,58 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _generateRoutes() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    _controller.repeat();
+
+    try {
+      Position? location;
+
+      try {
+        location = await getCurrentLocation();
+      } catch (e) {
+        if (!context.mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        return;
+      }
+
+      final startLocation = location.toLocation();
+
+      final result = await FirebaseHelper.createRouteWithKeywords(
+        start: startLocation,
+        keywords: _selectedChips,
+        radius: _value.toInt() * 1000,
+      );
+
+      GooglePlacesResponse response = GooglePlacesResponse.fromJson(result);
+
+      List<GooglePlace> uniquePlaces = response.results.toSet().toList();
+
+      // for each place, say the name and thevicinity
+      for (var place in uniquePlaces) {
+        debugPrint(place.name);
+        debugPrint(place.vicinity);
+      }
+
+      context.pushAnimated(
+        RouteCreationPage(poiList: uniquePlaces),
+        animation: NavigationAnimation.fadeScale,
+      );
+
+      if (!context.mounted) return;
+      setState(() => _isLoading = false);
+    } finally {
+      if (mounted) {
+        _controller.stop();
+        _controller.reset();
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }
