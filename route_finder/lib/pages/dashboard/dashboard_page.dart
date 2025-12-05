@@ -5,12 +5,14 @@ import 'package:route_finder/components/components.dart';
 import 'package:route_finder/logic/firebase_helper.dart';
 import 'package:route_finder/logic/google_places_models.dart';
 import 'package:route_finder/logic/helpers.dart';
+
 import 'package:route_finder/logic/models.dart';
 
 import 'package:route_finder/pages/landing/landing_page.dart';
 import 'package:route_finder/pages/map_test.dart';
 import 'package:route_finder/pages/routes/route_creation.dart';
 import 'package:route_finder/pages/routes/routes_list_map_view_page.dart';
+import 'package:toastification/toastification.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -133,10 +135,11 @@ class _DashboardPageState extends State<DashboardPage>
         spacing: AppSpacings.md,
         children: [
           GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {},
             child: Container(
               width: 54,
               height: 54,
-
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [kPrimary, kPrimaryVariant]),
                 borderRadius: BorderRadius.circular(12),

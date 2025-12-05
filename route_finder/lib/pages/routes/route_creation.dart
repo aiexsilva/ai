@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:route_finder/components/components.dart';
+import 'package:route_finder/logic/firebase_helper.dart';
 import 'package:route_finder/logic/google_places_models.dart';
 import 'package:route_finder/logic/helpers.dart';
 import 'package:route_finder/logic/models.dart';
@@ -19,14 +20,34 @@ class RouteCreationPage extends ConsumerStatefulWidget {
   ConsumerState<RouteCreationPage> createState() => _RouteCreationPageState();
 }
 
-class _RouteCreationPageState extends ConsumerState<RouteCreationPage> {
+class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
+    with SingleTickerProviderStateMixin {
   final CardSwiperController _cardSwiperController = CardSwiperController();
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _isLoading = false;
 
   bool allCardsSwiped = false;
 
   @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _animation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -0.05), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -0.05, end: 0.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.05), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.05, end: 0.0), weight: 1),
+    ]).animate(_controller);
+  }
+
+  @override
   void dispose() {
     _cardSwiperController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -251,12 +272,16 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage> {
                           SizedBox(height: AppSpacings.lg),
                           AppButton(
                             label: "Create Route",
-                            onTap: () {
-                              // context.pushReplacementAnimated(
-                              //   DashboardPage(),
-                              //   animation: NavigationAnimation.fade,
-                              // );
-                            },
+                            enabled: !_isLoading,
+                            leading: RotationTransition(
+                              turns: _animation,
+                              child: Icon(
+                                LucideIcons.wandSparkles300,
+                                size: 24,
+                                color: Colors.white,
+                              ),
+                            ),
+                            onTap: _finalizeRoute,
                           ),
                         ],
                       ),
@@ -309,6 +334,24 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage> {
       ),
     );
   }
+
+  Future<void> _finalizeRoute() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    _controller.repeat();
+
+    try {
+      await FirebaseHelper.finalizeRouteCreation(
+        selectedPlaces: ref.read(selectedPlacesProvider.notifier)._places,
+      );
+    } finally {
+      if (mounted) {
+        _controller.stop();
+        _controller.reset();
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 }
 
 class PlaceCard extends StatelessWidget {
@@ -327,7 +370,7 @@ class PlaceCard extends StatelessWidget {
     if (place.photos.isNotEmpty) {
       var photoName = place.photos[0].name;
       photoUrl =
-          "https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${dotenv.env['GOOGLE_PLACES_API_KEY'] ?? ''}";
+          "https://places.googleapis.com/v1/$photoName/media?maxWidthPx=400&key=${dotenv.env['GOOGLE_PLACES_API_KEY'] ?? ''}";
     }
 
     final double threshold = 0.3;
@@ -609,7 +652,7 @@ class PlaceCard extends StatelessWidget {
                 Icon(Icons.star, color: Colors.amber, size: 24),
                 SizedBox(width: AppSpacings.sm),
                 AppText(
-                  "${place.rating.toStringAsFixed(1)}",
+                  place.rating.toStringAsFixed(1),
                   variant: AppTextVariant.title,
                   colorOverride: kTextPrimary,
                   weightOverride: FontWeight.w600,

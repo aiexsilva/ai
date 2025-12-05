@@ -309,3 +309,35 @@ extension CapitalizeFirst on String {
 double calculateDistance(Coordinate start, Coordinate end) {
   return Geolocator.distanceBetween(start.lat, start.lng, end.lat, end.lng);
 }
+
+List<Coordinate> decodePolyline(String encoded) {
+  List<Coordinate> poly = [];
+  int index = 0, len = encoded.length;
+  int lat = 0, lng = 0;
+
+  while (index < len) {
+    int b, shift = 0, result = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+
+    poly.add(
+      Coordinate(lat: (lat / 1E5).toDouble(), lng: (lng / 1E5).toDouble()),
+    );
+  }
+  return poly;
+}
