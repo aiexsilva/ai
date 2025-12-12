@@ -101,7 +101,7 @@ class ProfilePage extends ConsumerWidget {
                                               route.status == "completed",
                                         )
                                         .map((route) => route.waypoints.length)
-                                        .reduce((a, b) => a + b)
+                                        .fold(0, (a, b) => a + b)
                                         .toString(),
                                     label: "Places Visited",
                                     color: Colors.teal,
@@ -116,7 +116,7 @@ class ProfilePage extends ConsumerWidget {
                               child: _StatCard(
                                 icon: LucideIcons.footprints,
                                 value:
-                                    "${routes.where((route) => route.status == "completed").map((route) => route.routeData['totalDistance'] as double).reduce((a, b) => a + b).toStringAsFixed(2)} km",
+                                    "${routes.where((route) => route.status == "completed").map((route) => route.routeData['totalDistance'] as double).fold(0.0, (a, b) => a + b).toStringAsFixed(2)} km",
                                 label: "Distance Travelled",
                                 color: Colors.orange,
                               ),

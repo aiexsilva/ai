@@ -51,6 +51,7 @@ export const finalizeEmailRegistration = functions.https.onCall(
       await db.collection("users").doc(uid).set({
         id: uid,
         email: email,
+        routeIds: [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
