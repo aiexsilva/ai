@@ -5,12 +5,7 @@ import heapq
 import itertools
 import math
 
-# --- LOGGING SETUP ---
-# Cloud Run captures stdout/stderr
-def log(msg):
-    print(f"[RouteFinder] {msg}")
-
-# --- YOUR CUSTOM ALGORITHM ---
+# --- DIJKSTRA ALGORITHM ---
 def dijkstra(graph, start_node, end_node):
     previous = {v: None for v in graph.keys()}
     distances = {v: float('inf') for v in graph.keys()}
@@ -78,7 +73,7 @@ def get_graph_center_dist(points_list):
     # Safety: ensure minimum radius of 500m
     return (center_lat, center_lng), max(dist, 500)
 
-# --- THE SERVER HANDLER ---
+# --- SERVER HANDLER ---
 @functions_framework.http
 def get_route(request):
     # CORS Headers
@@ -92,13 +87,20 @@ def get_route(request):
         return ('', 204, headers)
     headers = {'Access-Control-Allow-Origin': '*'}
 
+    # Initialize Log Buffer
+    log_buffer = []
+    def dlog(msg):
+        log_buffer.append(f"[RouteFinder] {msg}")
+
     # Parsing
     req = request.get_json(silent=True)
     if not req:
+        dlog("Error: No JSON provided")
+        print("\n".join(log_buffer))
         return (jsonify({"error": "No JSON provided"}), 400, headers)
 
     try:
-        log("Received request")
+        dlog("Request received")
         start_pt = (req['start']['lat'], req['start']['lng'])
         end_pt = (req['end']['lat'], req['end']['lng'])
         
@@ -106,28 +108,30 @@ def get_route(request):
         raw_waypoints = req.get('waypoints') or []
         waypoints_pts = [(w['lat'], w['lng']) for w in raw_waypoints]
         
-        log(f"Points: Start={start_pt}, End={end_pt}, Waypoints={len(waypoints_pts)}")
+        dlog(f"Points: Start={start_pt}, End={end_pt}, Waypoints={len(waypoints_pts)}")
         
     except Exception as e:
-        log(f"Parsing error: {e}")
+        dlog(f"Parsing error: {e}")
+        print("\n".join(log_buffer))
         return (jsonify({"error": f"Data parsing error: {str(e)}"}), 400, headers)
 
     # Graph Generation
     all_points = [start_pt, end_pt] + waypoints_pts
     center_point, dist_meters = get_graph_center_dist(all_points)
     
-    log(f"Downloading Graph. Center={center_point}, Dist={dist_meters}m")
+    dlog(f"Downloading Graph. Center={center_point}, Dist={dist_meters}m")
 
     try:
         # Use graph_from_point (safer than bbox)
         # dist_type='bbox' creates a square bounding box around the point
         plot = ox.graph_from_point(center_point, dist=dist_meters, dist_type='bbox', network_type="walk")
-        log(f"Graph downloaded. Nodes: {len(plot.nodes)}, Edges: {len(plot.edges)}")
+        dlog(f"Graph downloaded. Nodes: {len(plot.nodes)}, Edges: {len(plot.edges)}")
     except Exception as e:
-        log(f"OSMnx error: {e}")
+        dlog(f"OSMnx error: {e}")
+        print("\n".join(log_buffer))
         return (jsonify({"error": f"Graph generation failed: {str(e)}"}), 500, headers)
 
-    # Finding Nodes
+    # Find Nodes
     points_map = {}
     points_map['start'] = ox.nearest_nodes(plot, start_pt[1], start_pt[0])
     points_map['end'] = ox.nearest_nodes(plot, end_pt[1], end_pt[0])
@@ -148,7 +152,7 @@ def get_route(request):
     sources = ['start'] + list(range(len(waypoints_pts)))
     targets = ['end'] + list(range(len(waypoints_pts)))
     
-    log("Calculating Distance Matrix...")
+    dlog("Calculating Distance Matrix...")
     
     for src in sources:
         for tgt in targets:
@@ -193,7 +197,8 @@ def get_route(request):
                 best_order = sequence
 
     if best_distance == float('inf'):
-        log("No path found")
+        dlog("No path found")
+        print("\n".join(log_buffer))
         return (jsonify({"error": "No valid route found"}), 404, headers)
 
     # Stitching
@@ -216,7 +221,11 @@ def get_route(request):
                 "lng": node_data['x']
             })
 
-    log(f"Returning route with {len(route_coords)} points")
+    dlog(f"Returning route with {len(route_coords)} points")
+    
+    # Print all logs at once
+    print("\n".join(log_buffer))
+    
     return (jsonify({
         "distance": best_distance,
         "route": route_coords

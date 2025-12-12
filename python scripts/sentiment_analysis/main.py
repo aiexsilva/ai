@@ -138,8 +138,6 @@ def filter_places_sentiment(request):
             filtered_places.append(place)
             
     dlog(f"Returning {len(filtered_places)} places after filtering (Original: {len(places)})")
-
-    dlog(f"Filtered places: {filtered_places}")
     dlog("===== END: FILTER PLACES SENTIMENT =====")
     
     # Print all logs at once
