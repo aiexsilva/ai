@@ -11,6 +11,8 @@ import 'package:route_finder/logic/google_places_models.dart';
 import 'package:route_finder/logic/helpers.dart';
 import 'package:route_finder/logic/models.dart';
 import 'package:route_finder/pages/dashboard/dashboard_page.dart';
+import 'package:route_finder/pages/navigation/main_scaffold.dart';
+import 'package:toastification/toastification.dart';
 
 class RouteCreationPage extends ConsumerStatefulWidget {
   final List<GooglePlace> poiList;
@@ -29,6 +31,8 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
 
   bool allCardsSwiped = false;
 
+  final TextEditingController _routeNameController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +46,9 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.05), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 0.05, end: 0.0), weight: 1),
     ]).animate(_controller);
+    _routeNameController.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -56,7 +63,7 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
     var selectedPlaces = ref.watch(selectedPlacesProvider);
 
     return Scaffold(
-      backgroundColor: kSurfaceLight,
+      backgroundColor: AppColor.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacings.xl),
@@ -212,7 +219,11 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(LucideIcons.frown300, size: 64, color: kPrimary),
+                          Icon(
+                            LucideIcons.frown300,
+                            size: 64,
+                            color: AppColor.primary,
+                          ),
                           SizedBox(height: AppSpacings.lg),
                           AppText(
                             'Route not created',
@@ -245,45 +256,63 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
                   ),
                 if (selectedPlaces.places.isNotEmpty)
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacings.lg,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(LucideIcons.sparkle, size: 64, color: kPrimary),
-                          SizedBox(height: AppSpacings.lg),
-                          AppText(
-                            'Route created!',
-                            variant: AppTextVariant.heading,
-                            colorOverride: kTextPrimary,
-                            weightOverride: FontWeight.w600,
-                            textAlign: TextAlign.center,
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacings.lg,
                           ),
-                          SizedBox(height: AppSpacings.md),
-                          AppText(
-                            'You selected ${selectedPlaces.places.length} amazing place${selectedPlaces.places.length > 1 ? 's' : ''}',
-                            variant: AppTextVariant.body,
-                            colorOverride: kTextMuted,
-                            weightOverride: FontWeight.w400,
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: AppSpacings.lg),
-                          AppButton(
-                            label: "Create Route",
-                            enabled: !_isLoading,
-                            leading: RotationTransition(
-                              turns: _animation,
-                              child: Icon(
-                                LucideIcons.wandSparkles300,
-                                size: 24,
-                                color: Colors.white,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                LucideIcons.sparkles300,
+                                size: 92,
+                                color: AppColor.primary,
                               ),
-                            ),
-                            onTap: _finalizeRoute,
+                              SizedBox(height: AppSpacings.xxl),
+                              AppText(
+                                'Route Ready!',
+                                variant: AppTextVariant.heading,
+                                colorOverride: kTextPrimary,
+                                weightOverride: FontWeight.w600,
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: AppSpacings.md),
+                              AppText(
+                                'You selected ${selectedPlaces.places.length} amazing place${selectedPlaces.places.length > 1 ? 's' : ''}',
+                                variant: AppTextVariant.body,
+                                colorOverride: kTextMuted,
+                                weightOverride: FontWeight.w400,
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: AppSpacings.md),
+                              AppTextInput(
+                                label: "",
+                                placeholder: "Route name",
+                                controller: _routeNameController,
+                              ),
+                              SizedBox(height: AppSpacings.xl),
+                              AppButton(
+                                label: "Create Route",
+                                enabled:
+                                    !_isLoading &&
+                                    _routeNameController.text.trim().isNotEmpty,
+                                fullWidth: false,
+                                borderRadius: BorderRadius.circular(99999),
+                                leading: RotationTransition(
+                                  turns: _animation,
+                                  child: Icon(
+                                    LucideIcons.wandSparkles300,
+                                    size: 24,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                onTap: _finalizeRoute,
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -297,7 +326,11 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(LucideIcons.frown300, size: 64, color: kPrimary),
+                        Icon(
+                          LucideIcons.frown300,
+                          size: 64,
+                          color: AppColor.primary,
+                        ),
                         SizedBox(height: AppSpacings.lg),
                         AppText(
                           'No places found',
@@ -341,9 +374,32 @@ class _RouteCreationPageState extends ConsumerState<RouteCreationPage>
     _controller.repeat();
 
     try {
-      await FirebaseHelper.finalizeRouteCreation(
+      final response = await FirebaseHelper.finalizeRouteCreation(
         selectedPlaces: ref.read(selectedPlacesProvider.notifier)._places,
+        routeName: _routeNameController.text.trim(),
       );
+
+      if (response['success'] == false) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: AppText(
+            'Route creation failed!',
+            variant: AppTextVariant.title,
+            weightOverride: FontWeight.w600,
+          ),
+          description: AppText(
+            'An unknown error occurred.',
+            variant: AppTextVariant.label,
+            weightOverride: FontWeight.w600,
+            colorOverride: Colors.grey,
+          ),
+          autoCloseDuration: const Duration(seconds: 2),
+          dragToClose: true,
+        );
+      } else {
+        context.pushReplacementAnimated(MainScaffold());
+      }
     } finally {
       if (mounted) {
         _controller.stop();
@@ -483,7 +539,9 @@ class PlaceCard extends StatelessWidget {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(999),
-                                    color: kPrimary.withValues(alpha: 0.1),
+                                    color: AppColor.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                   ),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: AppSpacings.md + AppSpacings.sm,
@@ -494,7 +552,7 @@ class PlaceCard extends StatelessWidget {
                                         .replaceAll("_", " ")
                                         .capitalizeFirstLetters(),
                                     variant: AppTextVariant.label,
-                                    colorOverride: kPrimary,
+                                    colorOverride: AppColor.primary,
                                     weightOverride: FontWeight.w600,
                                   ),
                                 ),

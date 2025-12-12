@@ -2,13 +2,20 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:adaptive_dialog/adaptive_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart' hide Marker;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:route_finder/logic/firebase_helper.dart';
+import 'package:route_finder/logic/helpers.dart';
 import 'package:route_finder/logic/models.dart';
+import 'package:route_finder/pages/routes/route_details_page.dart';
+import 'package:toastification/toastification.dart';
 
 const Color kPrimary = Color(0xFF4C6FFF);
 const Color kPrimaryVariant = Color(0xFF6D4CFF);
@@ -18,6 +25,22 @@ const Color kSurfaceLight = Color(0xFFF6F8FF);
 const Color kTextPrimary = Color(0xFF0F1724);
 const Color kTextMuted = Color(0xFF6B7280);
 const double kRadiusMd = 12.0;
+const double kRadiusLg = 16.0;
+const double kRadiusXl = 24.0;
+
+class AppColor {
+  static const Color primary = Color(0xFFFF9143);
+  static const Color secondary = Color(0xFF29746F);
+
+  static const Color background = Color(0xFFFFF8F0);
+  static const Color backgroundSecondary = Color(0xFFEBEBE3);
+  static const Color backgroundDark = Color(0xFFF1EAE4);
+
+  static const Color textPrimary = Color(0xFF2C314A);
+  static const Color textMuted = Color(0xFF6D7392);
+
+  static const Color outline = Color(0xFFE7E1DA);
+}
 
 /// Small helper for marker data
 class MapMarker {
@@ -56,6 +79,10 @@ class AppButton extends StatefulWidget {
   final double? width;
   final BorderRadius? borderRadius;
 
+  final Color? foregroundColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
+
   const AppButton({
     super.key,
     required this.label,
@@ -69,6 +96,9 @@ class AppButton extends StatefulWidget {
     this.width,
     this.borderRadius,
     this.fullWidth = true,
+    this.foregroundColor,
+    this.backgroundColor,
+    this.borderColor,
   });
 
   @override
@@ -81,22 +111,24 @@ class _AppButtonState extends State<AppButton> {
   void _setPressed(bool v) => setState(() => _pressed = v);
 
   Color _foregroundFor(AppButtonVariant v) {
+    if (widget.foregroundColor != null) return widget.foregroundColor!;
     switch (v) {
       case AppButtonVariant.primary:
         return Colors.white;
       case AppButtonVariant.ghost:
-        return kPrimary;
+        return AppColor.primary;
       case AppButtonVariant.outline:
-        return kPrimary;
+        return AppColor.primary;
       case AppButtonVariant.danger:
         return Colors.white;
     }
   }
 
   Color _backgroundFor(AppButtonVariant v) {
+    if (widget.backgroundColor != null) return widget.backgroundColor!;
     switch (v) {
       case AppButtonVariant.primary:
-        return kPrimary;
+        return AppColor.primary;
       case AppButtonVariant.ghost:
         return Colors.transparent;
       case AppButtonVariant.outline:
@@ -109,9 +141,9 @@ class _AppButtonState extends State<AppButton> {
   Border? _borderFor(AppButtonVariant v) {
     switch (v) {
       case AppButtonVariant.outline:
-        return Border.all(color: kPrimary.withOpacity(0.14));
+        return Border.all(color: widget.borderColor ?? AppColor.primary);
       case AppButtonVariant.ghost:
-        return Border.all(color: kPrimary.withOpacity(0.06));
+        return Border.all(color: widget.borderColor ?? AppColor.primary);
       default:
         return null;
     }
@@ -124,7 +156,7 @@ class _AppButtonState extends State<AppButton> {
       case AppButtonSize.medium:
         return 48;
       case AppButtonSize.large:
-        return 56;
+        return 64;
     }
   }
 
@@ -196,15 +228,14 @@ class _AppButtonState extends State<AppButton> {
                           const SizedBox(width: 8),
                         ],
                         Flexible(
-                          child: Text(
+                          child: AppText(
                             widget.label,
+                            variant: widget.size != AppButtonSize.small
+                                ? AppTextVariant.body
+                                : AppTextVariant.label,
+                            weightOverride: FontWeight.w600,
                             textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: fg,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
+                            colorOverride: _foregroundFor(widget.variant),
                           ),
                         ),
                         if (widget.trailing != null) ...[
@@ -247,9 +278,9 @@ class AppChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = selected
-        ? (color ?? kPrimary).withOpacity(0.12)
+        ? (color ?? Colors.white).withOpacity(0.12)
         : Colors.grey[100];
-    final textColor = selected ? (color ?? kPrimary) : kTextPrimary;
+    final textColor = selected ? (color ?? Colors.white) : AppColor.textPrimary;
     return Container(
       padding: EdgeInsets.all(AppSpacings.md),
       margin: const EdgeInsets.symmetric(
@@ -264,12 +295,12 @@ class AppChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(color: textColor)),
+          AppText(label, colorOverride: textColor),
           if (onDeleted != null) ...[
             const SizedBox(width: 6),
             GestureDetector(
               onTap: onDeleted,
-              child: Icon(LucideIcons.x300, size: 16, color: textColor),
+              child: Icon(LucideIcons.x300, size: 16, color: Colors.white),
             ),
           ],
         ],
@@ -354,32 +385,38 @@ class _SearchChipsBarState extends State<SearchChipsBar> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          controller: _ctrl,
-          focusNode: _focus,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (v) {
-            widget.onSubmitted?.call(v);
-            _addFromText();
-          },
-          decoration: InputDecoration(
-            hintText: widget.placeholder,
-            prefixIcon: const Icon(LucideIcons.search300),
-            suffixIcon: _ctrl.text.isEmpty
-                ? null
-                : GestureDetector(
-                    onTap: () => _ctrl.clear(),
-                    child: const Icon(LucideIcons.x300),
-                  ),
-            filled: true,
-            fillColor: kBgLight,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(kRadiusMd),
-              borderSide: BorderSide(color: Colors.grey[100] ?? Colors.grey),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(kRadiusMd),
+          child: TextField(
+            controller: _ctrl,
+            focusNode: _focus,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (v) {
+              widget.onSubmitted?.call(v);
+              _addFromText();
+            },
+            decoration: InputDecoration(
+              hintText: widget.placeholder,
+              prefixIcon: const Icon(
+                LucideIcons.search300,
+                color: AppColor.textMuted,
+              ),
+              suffixIcon: _ctrl.text.isEmpty
+                  ? null
+                  : GestureDetector(
+                      onTap: () => _ctrl.clear(),
+                      child: const Icon(
+                        LucideIcons.x300,
+                        color: AppColor.textMuted,
+                      ),
+                    ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+              border: InputBorder.none,
             ),
           ),
         ),
@@ -403,7 +440,11 @@ class _SearchChipsBarState extends State<SearchChipsBar> {
                         margin: const EdgeInsets.only(right: AppSpacings.md),
                         child: Chip(
                           backgroundColor: Colors.white,
-                          label: Text(s),
+                          label: AppText(
+                            s,
+                            variant: AppTextVariant.caption,
+                            colorOverride: AppColor.textPrimary,
+                          ),
                         ),
                       ),
                     ),
@@ -419,7 +460,11 @@ class _SearchChipsBarState extends State<SearchChipsBar> {
               spacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                AppText("Filtering by:", variant: AppTextVariant.title),
+                AppText(
+                  "Filtering by:",
+                  variant: AppTextVariant.title,
+                  colorOverride: Colors.white,
+                ),
                 ..._chips.map(
                   (c) => AppChip(
                     label: c,
@@ -437,10 +482,12 @@ class _SearchChipsBarState extends State<SearchChipsBar> {
                   leading: Icon(
                     LucideIcons.trash2300,
                     size: 20,
-                    color: kPrimary,
+                    color: Colors.white,
                   ),
                   fullWidth: false,
                   variant: AppButtonVariant.outline,
+                  foregroundColor: Colors.white,
+                  borderColor: Colors.white,
                   size: AppButtonSize.small,
                   onTap: () => setState(() {
                     _chips.map((c) => _removeChip(c));
@@ -1097,6 +1144,8 @@ class AppTextInput extends StatefulWidget {
   final TextInputType? keyboard;
   final TextEditingController controller;
   final String? error;
+  final bool? multiline;
+  final int? maxLines;
 
   // Novos: foco e navegação por teclado
   final FocusNode? focusNode;
@@ -1122,6 +1171,8 @@ class AppTextInput extends StatefulWidget {
     this.onEditingComplete,
     this.onSubmitted,
     this.onChanged,
+    this.multiline,
+    this.maxLines,
   });
 
   @override
@@ -1210,19 +1261,17 @@ class _AppTextInputState extends State<AppTextInput> {
       borderColor = Colors.red;
       borderWidth = 2.0;
     } else if (focused) {
-      borderColor = kPrimary;
+      borderColor = AppColor.primary;
       borderWidth = 2.0;
     } else if (hasValue) {
-      borderColor = kTextPrimary;
+      borderColor = AppColor.textPrimary;
       borderWidth = 1.0;
     } else {
       borderColor = Colors.grey;
       borderWidth = 1.0;
     }
 
-    final Color iconColor = focused
-        ? kTextPrimary
-        : (hasValue ? Colors.grey : Colors.grey.withValues(alpha: 0.6));
+    final Color iconColor = focused ? AppColor.textPrimary : AppColor.textMuted;
 
     return Column(
       spacing: AppSpacings.sm,
@@ -1242,11 +1291,7 @@ class _AppTextInputState extends State<AppTextInput> {
           curve: Curves.easeInOut,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(kRadiusMd),
-            border: Border.all(
-              color: borderColor,
-              width: borderWidth,
-              strokeAlign: BorderSide.strokeAlignOutside,
-            ),
+            color: AppColor.backgroundDark,
           ),
           child: Padding(
             padding: EdgeInsets.all(AppSpacings.lg),
@@ -1263,15 +1308,16 @@ class _AppTextInputState extends State<AppTextInput> {
                     controller: widget.controller,
                     keyboardType: widget.keyboard,
                     obscureText: _obscured,
-                    cursorColor: kPrimary,
+                    maxLines: widget.maxLines ?? 1,
+                    cursorColor: AppColor.primary,
                     textInputAction:
                         widget.textInputAction ?? TextInputAction.done,
                     onEditingComplete: widget.onEditingComplete,
                     onSubmitted: widget.onSubmitted,
                     onChanged: widget.onChanged,
                     style: TextStyle(
-                      color: kTextPrimary,
-                      fontSize: 16,
+                      color: AppColor.textPrimary,
+                      fontSize: 18,
                       height: 1.5,
                       fontFamily: 'Nunito',
                       fontWeight: FontWeight.w400,
@@ -1281,8 +1327,8 @@ class _AppTextInputState extends State<AppTextInput> {
                       border: InputBorder.none,
                       hintText: widget.placeholder,
                       hintStyle: TextStyle(
-                        color: Colors.grey.withValues(alpha: 0.6),
-                        fontSize: 16,
+                        color: AppColor.textMuted,
+                        fontSize: 18,
                         height: 1.5,
                         fontFamily: 'Nunito',
                         fontWeight: FontWeight.w400,
@@ -1302,7 +1348,7 @@ class _AppTextInputState extends State<AppTextInput> {
                   AppText(
                     widget.suffix!,
                     variant: AppTextVariant.label,
-                    colorOverride: Colors.grey,
+                    colorOverride: AppColor.textMuted,
                   ),
                 ],
 
@@ -1312,7 +1358,7 @@ class _AppTextInputState extends State<AppTextInput> {
                     onTap: () => setState(() => _obscured = !_obscured),
                     child: Icon(
                       _obscured ? LucideIcons.eyeOff300 : LucideIcons.eye300,
-                      size: 24,
+                      size: 20,
                       color: iconColor,
                     ),
                   ),
@@ -1780,16 +1826,66 @@ class _RouteCardState extends State<RouteCard> {
   double scale = 1.0;
 
   double _averageRating() {
-    final pois = widget.route.pointsofinterest;
+    final pois = widget.route.waypoints;
     if (pois.isEmpty) return 0.0;
     final sum = pois.map((p) => p.rating).reduce((a, b) => a + b);
     return sum / pois.length;
   }
 
+  double _calculateDistance() {
+    double totalDistance = 0.0;
+    if (widget.route.waypoints.isEmpty) return 0.0;
+
+    // Start to first waypoint
+    totalDistance += Geolocator.distanceBetween(
+      widget.route.start.coordinate.lat,
+      widget.route.start.coordinate.lng,
+      widget.route.waypoints.first.coordinates.lat,
+      widget.route.waypoints.first.coordinates.lng,
+    );
+
+    // Between waypoints
+    for (int i = 0; i < widget.route.waypoints.length - 1; i++) {
+      totalDistance += Geolocator.distanceBetween(
+        widget.route.waypoints[i].coordinates.lat,
+        widget.route.waypoints[i].coordinates.lng,
+        widget.route.waypoints[i + 1].coordinates.lat,
+        widget.route.waypoints[i + 1].coordinates.lng,
+      );
+    }
+
+    // Last waypoint to end
+    totalDistance += Geolocator.distanceBetween(
+      widget.route.waypoints.last.coordinates.lat,
+      widget.route.waypoints.last.coordinates.lng,
+      widget.route.end.coordinate.lat,
+      widget.route.end.coordinate.lng,
+    );
+
+    return totalDistance / 1000;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final poiImage = widget.route.pointsofinterest.isNotEmpty
-        ? widget.route.pointsofinterest.first.imagePath
+    final poiImage =
+        widget.route.waypoints.isNotEmpty &&
+            widget.route.waypoints.first.photos.isNotEmpty
+        ? widget
+              .route
+              .waypoints
+              .first
+              .photos
+              .first
+              .name // This is not a URL, but we'll use it for now or need a placeholder
+        : null;
+
+    // Use a placeholder if name is not a URL (which it likely isn't)
+    // For now, let's assume we don't have a valid image URL unless we construct it.
+    // We'll skip the image if it's not a valid asset path or URL.
+    final validImage =
+        poiImage != null &&
+            (poiImage.startsWith('http') || poiImage.startsWith('assets'))
+        ? poiImage
         : null;
 
     return AnimatedScale(
@@ -1816,16 +1912,25 @@ class _RouteCardState extends State<RouteCard> {
             ),
             child: Column(
               children: [
-                if (poiImage != null)
+                if (validImage != null)
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(kRadiusMd),
                     ),
                     child: Image.asset(
-                      poiImage,
+                      validImage,
                       width: double.infinity,
                       height: 150,
                       fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: double.infinity,
+                        height: 150,
+                        color: Colors.grey[200],
+                        child: const Icon(
+                          LucideIcons.camera300,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
                   ),
                 Divider(height: 1, color: Colors.grey[100]),
@@ -1837,12 +1942,15 @@ class _RouteCardState extends State<RouteCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AppText(
-                          widget.route.name,
+                          "Route to ${widget.route.end.address}",
                           variant: AppTextVariant.title,
                         ),
                         SizedBox(height: AppSpacings.sm),
                         Wrap(
-                          children: widget.route.keywords
+                          children: widget.route.waypoints
+                              .expand((w) => w.types)
+                              .toSet()
+                              .take(4)
                               .map((kw) => AppChip(label: kw))
                               .toList(),
                         ),
@@ -1858,7 +1966,7 @@ class _RouteCardState extends State<RouteCard> {
                                 ),
                                 SizedBox(width: AppSpacings.sm),
                                 AppText(
-                                  '${widget.route.distance.toStringAsFixed(1)} km',
+                                  '${_calculateDistance().toStringAsFixed(1)} km',
                                   variant: AppTextVariant.label,
                                   colorOverride: Colors.grey,
                                 ),
@@ -1874,7 +1982,7 @@ class _RouteCardState extends State<RouteCard> {
                                 ),
                                 SizedBox(width: AppSpacings.sm),
                                 AppText(
-                                  '${(widget.route.duration).toStringAsFixed(0)} min',
+                                  'N/A min',
                                   variant: AppTextVariant.label,
                                   colorOverride: Colors.grey,
                                 ),
@@ -1882,7 +1990,7 @@ class _RouteCardState extends State<RouteCard> {
                             ),
                             SizedBox(width: AppSpacings.md),
                             AppText(
-                              '${widget.route.pointsofinterest.length} stops',
+                              '${widget.route.waypoints.length} stops',
                               variant: AppTextVariant.label,
                               colorOverride: Colors.grey,
                             ),
@@ -1918,14 +2026,145 @@ class _RouteCardState extends State<RouteCard> {
   }
 }
 
+class SavedRouteCard extends StatelessWidget {
+  final RouteModel route;
+  const SavedRouteCard({super.key, required this.route});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                child: Image.network(
+                  "https://places.googleapis.com/v1/${route.waypoints.first.photos.first.name}/media?maxWidthPx=400&key=${dotenv.env['GOOGLE_PLACES_API_KEY'] ?? ''}",
+                  height: 100,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                top: AppSpacings.lg,
+                right: AppSpacings.lg,
+                child: GestureDetector(
+                  onTap: () async {
+                    final result = await showOkCancelAlertDialog(
+                      context: context,
+                      title: "Delete Route",
+                      message: "Are you sure you want to delete this route?",
+                      okLabel: "Delete",
+                      cancelLabel: "Cancel",
+                    );
+
+                    if (result != OkCancelResult.ok) return;
+
+                    if (route.id != null) {
+                      final response = await FirebaseHelper.deleteRoute(
+                        routeId: route.id ?? "",
+                      );
+                      if (response['success'] != true) {
+                        toastification.show(
+                          context: context,
+                          type: ToastificationType.error,
+                          title: AppText(
+                            'Delete failed!',
+                            variant: AppTextVariant.title,
+                            weightOverride: FontWeight.w600,
+                          ),
+                          description: AppText(
+                            'An unknown error occurred.',
+                            variant: AppTextVariant.label,
+                            weightOverride: FontWeight.w600,
+                            colorOverride: Colors.grey,
+                          ),
+                          autoCloseDuration: const Duration(seconds: 2),
+                          dragToClose: true,
+                        );
+                      }
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(AppSpacings.md),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withValues(alpha: 0.6),
+                    ),
+                    child: Icon(LucideIcons.trash300, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsetsGeometry.all(AppSpacings.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppText(
+                  route.name,
+                  variant: AppTextVariant.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: AppSpacings.md),
+                Row(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          LucideIcons.mapPin300,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(width: AppSpacings.sm),
+                        AppText(
+                          '${route.routeData['distance'].toStringAsFixed(1)} km',
+                          variant: AppTextVariant.label,
+                          colorOverride: Colors.grey,
+                        ),
+                      ],
+                    ),
+                    SizedBox(width: AppSpacings.md),
+                    Expanded(
+                      child: AppText(
+                        '${route.waypoints.length} stops',
+                        variant: AppTextVariant.label,
+                        colorOverride: Colors.grey,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: AppSpacings.lg),
+                AppButton(
+                  label: "Details",
+                  leading: Icon(LucideIcons.info300, color: Colors.white),
+                  size: AppButtonSize.medium,
+                  onTap: () {
+                    context.pushAnimated(RouteDetailsPage(route: route));
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class TripMapCard extends StatefulWidget {
   final List<RouteModel> route;
-  final String googleApiKey;
-  const TripMapCard({
-    super.key,
-    required this.route,
-    this.googleApiKey = 'AIzaSyDCP_lxe5S1el1xUJW2Ho3jji1w_OA_b7s',
-  });
+  final Future<void> Function(RouteModel)? onSave;
+  const TripMapCard({super.key, required this.route, this.onSave});
 
   @override
   State<TripMapCard> createState() => _TripMapCardState();
@@ -1952,9 +2191,8 @@ class _TripMapCardState extends State<TripMapCard> {
   int _selectedIndex = 0;
 
   static const List<Color> _palette = [
-    kPrimary,
-    kPrimaryVariant,
-    kAccent,
+    AppColor.primary,
+    AppColor.secondary,
     Colors.teal,
     Colors.orangeAccent,
     Colors.purpleAccent,
@@ -1999,39 +2237,30 @@ class _TripMapCardState extends State<TripMapCard> {
 
     for (var routeIndex = 0; routeIndex < widget.route.length; routeIndex++) {
       final route = widget.route[routeIndex];
-      final pois = route.pointsofinterest;
+      final pois = route.waypoints;
       if (pois.isEmpty) continue;
 
       // debug prints (keeps your previous diagnostics)
       for (var i = 0; i < pois.length; i++) {
         final p = pois[i];
         debugPrint(
-          'Route $routeIndex POI[$i] ${p.name} -> lat=${p.coordinate.lat}, lng=${p.coordinate.lng}',
+          'Route $routeIndex POI[$i] ${p.name} -> lat=${p.coordinates.lat}, lng=${p.coordinates.lng}',
         );
       }
 
-      final origin = pois.first.coordinate;
+      final origin = pois.first.coordinates;
       final waypoints = <Coordinate>[];
       for (var i = 1; i < pois.length; i++) {
-        waypoints.add(pois[i].coordinate);
+        waypoints.add(pois[i].coordinates);
       }
 
       List<LatLng> routePoints = [];
 
       try {
-        // try optimized Routes API (your helper present elsewhere)
-        final result = await fetchOptimizedRoundTripRoutesAPI(
-          origin,
-          waypoints,
-          widget.googleApiKey,
-        );
-
-        final decoded = result.polyline
-            .map((c) => LatLng(c.lat, c.lng))
-            .toList();
-        if (decoded.isNotEmpty) {
-          routePoints = decoded;
-          _routeOptimizedOrder[routeIndex] = result.optimizedWaypointOrder;
+        final encoded = route.routeData['encodedPolyline'] as String?;
+        if (encoded != null && encoded.isNotEmpty) {
+          final decoded = decodePolyline(encoded);
+          routePoints = decoded.map((c) => LatLng(c.lat, c.lng)).toList();
         } else {
           // fallback to client-side TSP
           final fallbackOrder = _solveTspNearestNeighbor(origin, waypoints);
@@ -2039,7 +2268,7 @@ class _TripMapCardState extends State<TripMapCard> {
           routePoints = pts.map((c) => LatLng(c.lat, c.lng)).toList();
         }
       } catch (e) {
-        debugPrint('Routes API / TripMapCard error for route $routeIndex: $e');
+        debugPrint('Error decoding polyline for route $routeIndex: $e');
         // fallback to client-side TSP
         final fallbackOrder = _solveTspNearestNeighbor(origin, waypoints);
         final pts = [origin, ...fallbackOrder, origin];
@@ -2061,6 +2290,7 @@ class _TripMapCardState extends State<TripMapCard> {
           jointType: JointType.round,
           startCap: Cap.roundCap,
           endCap: Cap.roundCap,
+          zIndex: _selectedIndex == routeIndex ? 1 : 0,
         ),
       );
 
@@ -2097,12 +2327,12 @@ class _TripMapCardState extends State<TripMapCard> {
   Future<void> _prepareIcons() async {
     for (var i = 0; i < widget.route.length; i++) {
       final color = _palette[i % _palette.length];
-      _poiIcons[i] = await _createCircleBitmapDescriptor(
+      _poiIcons[i] = await createCircleBitmapDescriptor(
         borderColor: Colors.white,
         color,
         40,
       );
-      _startIcons[i] = await _createCircleBitmapDescriptor(
+      _startIcons[i] = await createCircleBitmapDescriptor(
         Colors.white,
         40,
         borderColor: color,
@@ -2111,59 +2341,27 @@ class _TripMapCardState extends State<TripMapCard> {
     }
   }
 
-  Future<BitmapDescriptor> _createCircleBitmapDescriptor(
-    Color color,
-    int size, {
-    Color? borderColor,
-    double borderWidth = 2,
-  }) async {
-    final recorder = PictureRecorder();
-    final canvas = Canvas(recorder);
-    final radius = size / 2.0;
-
-    final paint = Paint()..color = color;
-    canvas.drawCircle(Offset(radius, radius), radius, paint);
-
-    if (borderColor != null && borderWidth > 0) {
-      final borderPaint = Paint()
-        ..color = borderColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = borderWidth;
-      canvas.drawCircle(
-        Offset(radius, radius),
-        radius - borderWidth / 2,
-        borderPaint,
-      );
-    }
-
-    final picture = recorder.endRecording();
-    final img = await picture.toImage(size, size);
-    final bd = await img.toByteData(format: ImageByteFormat.png);
-    final bytes = bd!.buffer.asUint8List();
-    return BitmapDescriptor.fromBytes(bytes);
-  }
-
   List<Marker> _buildMarkersForRoute(
     RouteModel route,
     int routeIndex,
     List<int> optimizedOrder,
   ) {
     final markers = <Marker>[];
-    final pois = route.pointsofinterest;
+    final pois = route.waypoints;
     if (pois.isEmpty) return markers;
 
     final colorPoi = _poiIcons[routeIndex];
     final colorStart = _startIcons[routeIndex];
 
     // start
-    final origin = pois.first.coordinate;
+    final origin = pois.first.coordinates;
     if (_isValidLatLng(origin.lat, origin.lng)) {
       markers.add(
         Marker(
           markerId: MarkerId('r${routeIndex}_start'),
           position: LatLng(origin.lat, origin.lng),
           icon: colorStart ?? BitmapDescriptor.defaultMarker,
-          infoWindow: InfoWindow(title: route.name, snippet: 'Start'),
+          infoWindow: InfoWindow(title: "Route", snippet: 'Start'),
           anchor: const Offset(0.5, 1.0),
         ),
       );
@@ -2183,11 +2381,11 @@ class _TripMapCardState extends State<TripMapCard> {
           continue;
         }
         final poi = intermediate[originalWaypointIndex];
-        if (!_isValidLatLng(poi.coordinate.lat, poi.coordinate.lng)) continue;
+        if (!_isValidLatLng(poi.coordinates.lat, poi.coordinates.lng)) continue;
         markers.add(
           Marker(
             markerId: MarkerId('r${routeIndex}_poi_${orderIndex + 1}'),
-            position: LatLng(poi.coordinate.lat, poi.coordinate.lng),
+            position: LatLng(poi.coordinates.lat, poi.coordinates.lng),
             icon: colorPoi ?? BitmapDescriptor.defaultMarker,
             infoWindow: InfoWindow(
               title: 'Stop ${orderIndex + 1}',
@@ -2200,11 +2398,11 @@ class _TripMapCardState extends State<TripMapCard> {
     } else {
       for (var j = 0; j < intermediate.length; j++) {
         final poi = intermediate[j];
-        if (!_isValidLatLng(poi.coordinate.lat, poi.coordinate.lng)) continue;
+        if (!_isValidLatLng(poi.coordinates.lat, poi.coordinates.lng)) continue;
         markers.add(
           Marker(
             markerId: MarkerId('r${routeIndex}_poi_${j + 1}'),
-            position: LatLng(poi.coordinate.lat, poi.coordinate.lng),
+            position: LatLng(poi.coordinates.lat, poi.coordinates.lng),
             icon: colorPoi ?? BitmapDescriptor.defaultMarker,
             infoWindow: InfoWindow(title: 'Stop ${j + 1}', snippet: poi.name),
             anchor: const Offset(0.5, 0.5),
@@ -2226,29 +2424,29 @@ class _TripMapCardState extends State<TripMapCard> {
       // fallback: build simple markers from POIs
       if (_selectedIndex >= 0 && _selectedIndex < widget.route.length) {
         final r = widget.route[_selectedIndex];
-        final pois = r.pointsofinterest;
+        final pois = r.waypoints;
         if (pois.isNotEmpty) {
           final start = pois.first;
-          if (_isValidLatLng(start.coordinate.lat, start.coordinate.lng)) {
+          if (_isValidLatLng(start.coordinates.lat, start.coordinates.lng)) {
             _markers.add(
               Marker(
                 markerId: MarkerId('r${_selectedIndex}_start_fb'),
-                position: LatLng(start.coordinate.lat, start.coordinate.lng),
+                position: LatLng(start.coordinates.lat, start.coordinates.lng),
                 icon:
                     _startIcons[_selectedIndex] ??
                     BitmapDescriptor.defaultMarker,
-                infoWindow: InfoWindow(title: r.name, snippet: 'Start'),
+                infoWindow: InfoWindow(title: "Route", snippet: 'Start'),
                 anchor: const Offset(0.5, 1.0),
               ),
             );
           }
           for (var j = 0; j < pois.length; j++) {
             final p = pois[j];
-            if (!_isValidLatLng(p.coordinate.lat, p.coordinate.lng)) continue;
+            if (!_isValidLatLng(p.coordinates.lat, p.coordinates.lng)) continue;
             _markers.add(
               Marker(
                 markerId: MarkerId('r${_selectedIndex}_poi_fb_$j'),
-                position: LatLng(p.coordinate.lat, p.coordinate.lng),
+                position: LatLng(p.coordinates.lat, p.coordinates.lng),
                 icon:
                     _poiIcons[_selectedIndex] ?? BitmapDescriptor.defaultMarker,
                 infoWindow: InfoWindow(title: 'Stop ${j + 1}', snippet: p.name),
@@ -2286,6 +2484,7 @@ class _TripMapCardState extends State<TripMapCard> {
           jointType: JointType.round,
           startCap: Cap.roundCap,
           endCap: Cap.roundCap,
+          zIndex: i == _selectedIndex ? 1 : 0,
         ),
       );
     }
@@ -2294,9 +2493,9 @@ class _TripMapCardState extends State<TripMapCard> {
 
   List<LatLng> _polyPointsFromPOIs(RouteModel route) {
     final pts = <LatLng>[];
-    for (final p in route.pointsofinterest) {
-      if (_isValidLatLng(p.coordinate.lat, p.coordinate.lng)) {
-        pts.add(LatLng(p.coordinate.lat, p.coordinate.lng));
+    for (final p in route.waypoints) {
+      if (_isValidLatLng(p.coordinates.lat, p.coordinates.lng)) {
+        pts.add(LatLng(p.coordinates.lat, p.coordinates.lng));
       }
     }
     if (pts.length > 1) {
@@ -2333,8 +2532,8 @@ class _TripMapCardState extends State<TripMapCard> {
     } else if (mapController != null) {
       // fallback center on first POI
       final r = widget.route[index];
-      if (r.pointsofinterest.isNotEmpty) {
-        final c = r.pointsofinterest.first.coordinate;
+      if (r.waypoints.isNotEmpty) {
+        final c = r.waypoints.first.coordinates;
         await mapController!.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(c.lat, c.lng), 14),
         );
@@ -2431,201 +2630,211 @@ class _TripMapCardState extends State<TripMapCard> {
   }
 
   double _avgRating(RouteModel r) {
-    if (r.pointsofinterest.isEmpty) return 0.0;
-    final sum = r.pointsofinterest.map((p) => p.rating).reduce((a, b) => a + b);
-    return sum / r.pointsofinterest.length;
+    if (r.waypoints.isEmpty) return 0.0;
+    final sum = r.waypoints.map((p) => p.rating).reduce((a, b) => a + b);
+    return sum / r.waypoints.length;
   }
 
   @override
   Widget build(BuildContext context) {
-    final cardHeight = 200.0;
+    final cardHeight = 150.0;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        height: 150,
-        child: Stack(
-          children: [
-            GoogleMap(
-              initialCameraPosition: _initial(),
-              markers: _markers,
-              polylines: _polylines,
-              onMapCreated: (controller) {
-                mapController = controller;
-                if (!_loading && _selectedIndex >= 0) {
-                  final pts = _routePointsByIndex[_selectedIndex];
-                  if (pts != null && pts.isNotEmpty) {
-                    _fitCameraToPolyline(mapController!, pts);
-                  }
+    return SizedBox(
+      height: cardHeight,
+      child: Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: _initial(),
+            markers: _markers,
+            polylines: _polylines,
+            onMapCreated: (controller) {
+              mapController = controller;
+              if (!_loading && _selectedIndex >= 0) {
+                final pts = _routePointsByIndex[_selectedIndex];
+                if (pts != null && pts.isNotEmpty) {
+                  _fitCameraToPolyline(mapController!, pts);
                 }
-              },
-              zoomControlsEnabled: true,
-              scrollGesturesEnabled: true,
-              rotateGesturesEnabled: true,
-              tiltGesturesEnabled: true,
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
-              liteModeEnabled: false,
-            ),
-            if (_loading)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withOpacity(0.03),
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
+              }
+            },
+            zoomControlsEnabled: true,
+            scrollGesturesEnabled: true,
+            rotateGesturesEnabled: true,
+            tiltGesturesEnabled: true,
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
+            liteModeEnabled: false,
+          ),
+          if (_loading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.03),
+                child: const Center(child: CircularProgressIndicator()),
               ),
-            // bottom cards as PageView -> swipe or tap to change selected route
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: SafeArea(
-                minimum: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
-                child: SizedBox(
-                  height: cardHeight,
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: widget.route.length,
-                    onPageChanged: (index) => _selectRoute(index),
-                    itemBuilder: (context, i) {
-                      final r = widget.route[i];
-                      final selected = _selectedIndex == i;
-                      final color = _palette[i % _palette.length];
-                      final thumbnail =
-                          r.pointsofinterest.isNotEmpty &&
-                              r.pointsofinterest.first.imagePath.isNotEmpty
-                          ? Image.asset(
-                              r.pointsofinterest.first.imagePath,
-                              fit: BoxFit.cover,
-                              width: 110,
-                              height: double.infinity,
-                            )
-                          : Container(
-                              width: 110,
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                LucideIcons.mapPin300,
-                                color: Colors.grey,
-                              ),
-                            );
+            ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SafeArea(
+              minimum: const EdgeInsets.only(
+                bottom: AppSpacings.lg,
+                left: AppSpacings.md,
+                right: AppSpacings.md,
+              ),
+              child: SizedBox(
+                height: cardHeight,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: widget.route.length,
+                  onPageChanged: (index) => _selectRoute(index),
+                  itemBuilder: (context, i) {
+                    final r = widget.route[i];
+                    final selected = _selectedIndex == i;
+                    final color = _palette[i % _palette.length];
+                    final thumbnail = Image.network(
+                      "https://places.googleapis.com/v1/${r.waypoints.first.photos.first.name}/media?maxWidthPx=400&key=${dotenv.env['GOOGLE_PLACES_API_KEY'] ?? ''}",
+                      width: 110,
+                      height: 110,
+                      fit: BoxFit.cover,
+                    );
 
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: GestureDetector(
-                          onTap: () => _selectRoute(i),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: 300,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(kRadiusMd),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(
-                                    selected ? 0.10 : 0.06,
-                                  ),
-                                  blurRadius: selected ? 12 : 8,
-                                  offset: const Offset(0, 6),
+                    return Padding(
+                      padding: const EdgeInsets.only(right: AppSpacings.lg),
+                      child: GestureDetector(
+                        onTap: () => _selectRoute(i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(kRadiusMd),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(
+                                  selected ? 0.10 : 0.06,
                                 ),
-                              ],
-                              border: selected
-                                  ? Border.all(color: color.withOpacity(0.16))
-                                  : null,
-                            ),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: const BorderRadius.horizontal(
-                                    left: Radius.circular(kRadiusMd),
-                                  ),
-                                  child: SizedBox(width: 110, child: thumbnail),
+                                blurRadius: selected ? 12 : 8,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          padding: EdgeInsets.all(AppSpacings.lg),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(24),
+                                child: SizedBox(
+                                  width: 110,
+                                  height: 110,
+                                  child: thumbnail,
                                 ),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                              ),
+                              SizedBox(width: AppSpacings.lg),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    AppText(
+                                      r.name,
+                                      variant: AppTextVariant.body,
+                                      weightOverride: FontWeight.w600,
+                                    ),
+                                    const SizedBox(height: AppSpacings.sm),
+                                    AppText(
+                                      '${r.waypoints.length} stops',
+                                      variant: AppTextVariant.label,
+                                      colorOverride: Colors.grey,
+                                    ),
+                                    SizedBox(height: AppSpacings.lg),
+                                    Row(
                                       children: [
-                                        AppText(
-                                          r.name,
-                                          variant: AppTextVariant.title,
-                                          style: const TextStyle(fontSize: 16),
+                                        Icon(
+                                          Icons.star,
+                                          size: 20,
+                                          color: Colors.amber,
                                         ),
-                                        const SizedBox(height: 6),
+                                        SizedBox(width: AppSpacings.sm),
                                         AppText(
-                                          '${r.pointsofinterest.length} stops • ${r.distance.toStringAsFixed(1)} km',
+                                          _avgRating(r).toStringAsFixed(1),
                                           variant: AppTextVariant.label,
-                                          colorOverride: Colors.grey,
                                         ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              LucideIcons.star300,
-                                              size: 16,
-                                              color: Colors.amber[700],
-                                            ),
-                                            const SizedBox(width: 6),
-                                            AppText(
-                                              _avgRating(r).toStringAsFixed(1),
-                                              variant: AppTextVariant.label,
-                                            ),
-                                            const Spacer(),
-                                            Container(
+                                        if (widget.onSave != null) ...[
+                                          Spacer(),
+                                          GestureDetector(
+                                            onTap: () async {
+                                              await widget.onSave!(r);
+                                            },
+                                            child: Container(
+                                              padding: EdgeInsets.all(4),
                                               decoration: BoxDecoration(
-                                                color: color.withOpacity(0.12),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                                color: AppColor.primary
+                                                    .withOpacity(0.1),
+                                                shape: BoxShape.circle,
                                               ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: AppSpacings.md,
-                                                    vertical: AppSpacings.md,
-                                                  ),
-                                              child: AppText(
-                                                'Center',
-                                                variant: AppTextVariant.label,
-                                                colorOverride: color,
+                                              child: Icon(
+                                                LucideIcons.download300,
+                                                size: 20,
+                                                color: AppColor.primary,
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Expanded(
-                                          child: SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            child: Row(
-                                              children: r.keywords
-                                                  .take(5)
-                                                  .map((k) => AppChip(label: k))
-                                                  .toList(),
                                             ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
+Future<BitmapDescriptor> createCircleBitmapDescriptor(
+  Color color,
+  int size, {
+  Color? borderColor,
+  double borderWidth = 2,
+}) async {
+  final recorder = PictureRecorder();
+  final canvas = Canvas(recorder);
+  final radius = size / 2.0;
+
+  final paint = Paint()..color = color;
+  canvas.drawCircle(Offset(radius, radius), radius, paint);
+
+  if (borderColor != null && borderWidth > 0) {
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth;
+    canvas.drawCircle(
+      Offset(radius, radius),
+      radius - borderWidth / 2,
+      borderPaint,
+    );
+  }
+
+  final picture = recorder.endRecording();
+  final img = await picture.toImage(size, size);
+  final bd = await img.toByteData(format: ImageByteFormat.png);
+  final bytes = bd!.buffer.asUint8List();
+  return BitmapDescriptor.fromBytes(bytes);
+}
+
 double _avgRating(RouteModel r) {
-  if (r.pointsofinterest.isEmpty) return 0.0;
-  final sum = r.pointsofinterest.map((p) => p.rating).reduce((a, b) => a + b);
-  return sum / r.pointsofinterest.length;
+  if (r.waypoints.isEmpty) return 0.0;
+  final sum = r.waypoints.map((p) => p.rating).reduce((a, b) => a + b);
+  return sum / r.waypoints.length;
 }
 
 class OptimizedRouteResult {
@@ -2716,7 +2925,7 @@ Future<OptimizedRouteResult> fetchOptimizedRoundTripRoutesAPI(
 
   List<Coordinate> polylinePoints = [];
   if (encoded != null && encoded.isNotEmpty) {
-    polylinePoints = _decodePolyline(encoded);
+    polylinePoints = decodePolyline(encoded);
   }
 
   // extract optimized indices (try several key variants)
@@ -2747,7 +2956,7 @@ Future<OptimizedRouteResult> fetchOptimizedRoundTripRoutesAPI(
   );
 }
 
-List<Coordinate> _decodePolyline(String encoded) {
+List<Coordinate> decodePolyline(String encoded) {
   final List<Coordinate> points = [];
   int index = 0;
   int lat = 0, lng = 0;

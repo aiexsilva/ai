@@ -1,9 +1,7 @@
-import 'dart:convert';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:route_finder/logic/google_places_models.dart';
-
-enum Difficulty { easy, medium, hard }
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 double _toDouble(dynamic v) {
   if (v == null) return 0.0;
@@ -22,41 +20,7 @@ List<String> _toStringList(dynamic v) {
         .where((s) => s.isNotEmpty)
         .toList();
   }
-  if (v is String) {
-    return v
-        .split(RegExp(r'[,\s;]+'))
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-  }
   return <String>[];
-}
-
-String _difficultyToString(Difficulty d) {
-  switch (d) {
-    case Difficulty.easy:
-      return 'easy';
-    case Difficulty.medium:
-      return 'medium';
-    case Difficulty.hard:
-      return 'hard';
-  }
-}
-
-Difficulty _difficultyFromString(String? s) {
-  if (s == null) return Difficulty.medium;
-  final v = s.toLowerCase();
-  switch (v) {
-    case 'easy':
-    case 'e':
-      return Difficulty.easy;
-    case 'hard':
-    case 'h':
-      return Difficulty.hard;
-    case 'medium':
-    default:
-      return Difficulty.medium;
-  }
 }
 
 class Coordinate {
@@ -77,232 +41,15 @@ class Coordinate {
         return Coordinate(lat: _toDouble(latV), lng: _toDouble(lngV));
       }
     }
-    if (src is List && src.length >= 2) {
-      return Coordinate(lat: _toDouble(src[0]), lng: _toDouble(src[1]));
-    }
-    if (src is String) {
-      final parts = src
-          .split(RegExp(r'[,\s;]+'))
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-      if (parts.length >= 2) {
-        final lat = double.tryParse(parts[0]);
-        final lng = double.tryParse(parts[1]);
-        if (lat != null && lng != null) return Coordinate(lat: lat, lng: lng);
-      }
-    }
-    try {
-      final dyn = src as dynamic;
-      final latV = dyn.latitude;
-      final lngV = dyn.longitude;
-      if (latV != null && lngV != null) {
-        return Coordinate(lat: _toDouble(latV), lng: _toDouble(lngV));
-      }
-    } catch (_) {}
     return const Coordinate(lat: 0.0, lng: 0.0);
   }
 
   Map<String, dynamic> toJson() => {'latitude': lat, 'longitude': lng};
 
-  Coordinate copyWith({double? lat, double? lng}) =>
-      Coordinate(lat: lat ?? this.lat, lng: lng ?? this.lng);
-
   @override
   String toString() => 'Coordinate(latitude: $lat, longitude: $lng)';
-}
 
-class POI {
-  final double rating;
-  final String name;
-  final String description;
-  final List<String> keywords;
-  final String imagePath;
-  final Coordinate coordinate;
-
-  const POI({
-    required this.rating,
-    required this.name,
-    required this.description,
-    required this.keywords,
-    required this.imagePath,
-    required this.coordinate,
-  });
-
-  factory POI.fromJson(Map<String, dynamic> json) {
-    final rating = _toDouble(json['rating'] ?? json['rate'] ?? 0);
-    final name = (json['name'] ?? '').toString();
-    final description = (json['description'] ?? json['desc'] ?? '').toString();
-    final keywords = _toStringList(
-      json['keywords'] ?? json['keyword'] ?? json['tags'],
-    );
-    final imagePath =
-        (json['imagePath'] ??
-                json['imagepath'] ??
-                json['image'] ??
-                json['photo'] ??
-                '')
-            .toString();
-    final coordinate = Coordinate.fromJson(
-      json['coordinate'] ??
-          json['coords'] ??
-          json['location'] ??
-          json['latlng'] ??
-          json['geo'] ??
-          json['geopoint'],
-    );
-    return POI(
-      rating: rating,
-      name: name,
-      description: description,
-      keywords: keywords,
-      imagePath: imagePath,
-      coordinate: coordinate,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'rating': rating,
-    'name': name,
-    'description': description,
-    'keywords': keywords,
-    'imagePath': imagePath,
-    'coordinate': coordinate.toJson(),
-  };
-
-  POI copyWith({
-    double? rating,
-    String? name,
-    String? description,
-    List<String>? keywords,
-    String? imagePath,
-    Coordinate? coordinate,
-  }) {
-    return POI(
-      rating: rating ?? this.rating,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      keywords: keywords ?? this.keywords,
-      imagePath: imagePath ?? this.imagePath,
-      coordinate: coordinate ?? this.coordinate,
-    );
-  }
-
-  @override
-  String toString() =>
-      'POI(name: $name, rating: $rating, coordinate: $coordinate)';
-}
-
-extension POIFromGooglePlaces on POI {
-  POI fromGooglePlacesPlace(GooglePlace place) {
-    return POI(
-      rating: place.rating,
-      name: place.name,
-      description: place.vicinity,
-      keywords: place.types,
-      imagePath: '',
-      coordinate: place.geometry?.location ?? const Coordinate(lat: 0, lng: 0),
-    );
-  }
-}
-
-class RouteModel {
-  final String name;
-  final String description;
-  final List<String> keywords;
-  final double distance;
-  final double duration;
-  final Difficulty difficulty;
-  final List<POI> pointsofinterest;
-
-  const RouteModel({
-    required this.name,
-    required this.description,
-    required this.keywords,
-    required this.distance,
-    required this.difficulty,
-    required this.duration,
-    required this.pointsofinterest,
-  });
-
-  factory RouteModel.fromJson(Map<String, dynamic> json) {
-    final rawPois =
-        json['pointsofinterest'] ??
-        json['pointsOfInterest'] ??
-        json['pois'] ??
-        json['points_of_interest'] ??
-        <dynamic>[];
-    final List<POI> pois = <POI>[];
-    if (rawPois is List) {
-      for (final item in rawPois) {
-        if (item == null) continue;
-        if (item is Map<String, dynamic>) {
-          pois.add(POI.fromJson(item));
-        } else if (item is Map) {
-          pois.add(POI.fromJson(Map<String, dynamic>.from(item)));
-        } else if (item is String) {
-          try {
-            final decoded = jsonDecode(item);
-            if (decoded is Map) {
-              pois.add(POI.fromJson(Map<String, dynamic>.from(decoded)));
-            }
-          } catch (_) {}
-        }
-      }
-    }
-    final name = (json['name'] ?? '').toString();
-    final description = (json['description'] ?? json['desc'] ?? '').toString();
-    final keywords = _toStringList(json['keywords'] ?? json['tags']);
-    final distance = _toDouble(
-      json['distance'] ?? json['length'] ?? json['dist'] ?? 0,
-    );
-    final duration = _toDouble(json['duration'] ?? json['time'] ?? 0);
-    final difficulty = _difficultyFromString(json['difficulty']?.toString());
-
-    return RouteModel(
-      name: name,
-      description: description,
-      keywords: keywords,
-      distance: distance,
-      difficulty: difficulty,
-      pointsofinterest: pois,
-      duration: duration,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'description': description,
-    'keywords': keywords,
-    'distance': distance,
-    'difficulty': _difficultyToString(difficulty),
-    'duration': duration.toString(),
-    'pointsofinterest': pointsofinterest.map((p) => p.toJson()).toList(),
-  };
-
-  RouteModel copyWith({
-    String? name,
-    String? description,
-    List<String>? keywords,
-    double? distance,
-    double? duration,
-    Difficulty? difficulty,
-    List<POI>? pointsofinterest,
-  }) {
-    return RouteModel(
-      name: name ?? this.name,
-      description: description ?? this.description,
-      keywords: keywords ?? this.keywords,
-      distance: distance ?? this.distance,
-      difficulty: difficulty ?? this.difficulty,
-      duration: duration ?? this.duration,
-      pointsofinterest: pointsofinterest ?? this.pointsofinterest,
-    );
-  }
-
-  @override
-  String toString() =>
-      'RouteModel(name: $name, distance: $distance, difficulty: ${_difficultyToString(difficulty)})';
+  LatLng toLatLng() => LatLng(lat, lng);
 }
 
 class Location {
@@ -315,6 +62,7 @@ class Location {
     final address = (json['address'] ?? '').toString();
     final coordinate = Coordinate.fromJson(
       json['coordinate'] ??
+          json['coordinates'] ??
           json['coords'] ??
           json['location'] ??
           json['latlng'] ??
@@ -333,8 +81,279 @@ class Location {
 extension PositionToLocation on Position {
   Location toLocation() {
     return Location(
-      address: 'Sem Endereço',
+      address: 'Current Location',
       coordinate: Coordinate(lat: latitude, lng: longitude),
+    );
+  }
+}
+
+class Photo {
+  final int height;
+  final List<String> htmlAttributions;
+  final String name;
+  final int width;
+
+  Photo({
+    required this.height,
+    required this.htmlAttributions,
+    required this.name,
+    required this.width,
+  });
+
+  factory Photo.fromJson(Map<String, dynamic> json) {
+    return Photo(
+      height: json['height'] as int? ?? 0,
+      htmlAttributions: _toStringList(json['html_attributions']),
+      name: json['name'] as String? ?? '',
+      width: json['width'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'height': height,
+      'html_attributions': htmlAttributions,
+      'name': name,
+      'width': width,
+    };
+  }
+}
+
+class Waypoint {
+  final Coordinate coordinates;
+  final String name;
+  final Map<String, dynamic> openingHours;
+  final List<Photo> photos;
+  final String placeId;
+  final double rating;
+  final List<String> types;
+
+  final bool visited;
+  final bool skipped;
+
+  Waypoint({
+    required this.coordinates,
+    required this.name,
+    required this.openingHours,
+    required this.photos,
+    required this.placeId,
+    required this.rating,
+    required this.types,
+    this.visited = false,
+    this.skipped = false,
+  });
+
+  Waypoint copyWith({
+    Coordinate? coordinates,
+    String? name,
+    Map<String, dynamic>? openingHours,
+    List<Photo>? photos,
+    String? placeId,
+    double? rating,
+    List<String>? types,
+    bool? visited,
+    bool? skipped,
+  }) {
+    return Waypoint(
+      coordinates: coordinates ?? this.coordinates,
+      name: name ?? this.name,
+      openingHours: openingHours ?? this.openingHours,
+      photos: photos ?? this.photos,
+      placeId: placeId ?? this.placeId,
+      rating: rating ?? this.rating,
+      types: types ?? this.types,
+      visited: visited ?? this.visited,
+      skipped: skipped ?? this.skipped,
+    );
+  }
+
+  factory Waypoint.fromJson(Map<String, dynamic> json) {
+    return Waypoint(
+      coordinates: Coordinate.fromJson(json['coordinates']),
+      name: json['name'] as String? ?? '',
+      openingHours: Map<String, dynamic>.from(json['opening_hours'] ?? {}),
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => Photo.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          [],
+      placeId: json['placeId'] as String? ?? json['placeId'] as String? ?? '',
+      rating: _toDouble(json['rating']),
+      types: _toStringList(json['types']),
+      visited: json['visited'] as bool? ?? false,
+      skipped: json['skipped'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'coordinates': coordinates.toJson(),
+      'name': name,
+      'opening_hours': openingHours,
+      'photos': photos.map((e) => e.toJson()).toList(),
+      'placeId': placeId,
+      'rating': rating,
+      'types': types,
+      'visited': visited,
+      'skipped': skipped,
+    };
+  }
+}
+
+class RouteModel {
+  final String? id;
+  final Timestamp createdAt;
+  final Timestamp updatedAt;
+  final String createdBy;
+  final Location start;
+  final Location end;
+  final String name;
+  final List<Waypoint> waypoints;
+  final Map<String, dynamic> routeData;
+  final String status;
+  final int currentWaypointIndex;
+
+  const RouteModel({
+    this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.createdBy,
+    required this.start,
+    required this.end,
+    required this.name,
+    required this.waypoints,
+    required this.routeData,
+    this.status = 'planned',
+    this.currentWaypointIndex = 0,
+  });
+
+  RouteModel copyWith({
+    String? id,
+    Timestamp? createdAt,
+    Timestamp? updatedAt,
+    String? createdBy,
+    Location? start,
+    Location? end,
+    String? name,
+    List<Waypoint>? waypoints,
+    Map<String, dynamic>? routeData,
+    String? status,
+    int? currentWaypointIndex,
+  }) {
+    return RouteModel(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      createdBy: createdBy ?? this.createdBy,
+      start: start ?? this.start,
+      end: end ?? this.end,
+      name: name ?? this.name,
+      waypoints: waypoints ?? this.waypoints,
+      routeData: routeData ?? this.routeData,
+      status: status ?? this.status,
+      currentWaypointIndex: currentWaypointIndex ?? this.currentWaypointIndex,
+    );
+  }
+
+  factory RouteModel.fromJson(Map<String, dynamic> json, {String? id}) {
+    return RouteModel(
+      id: json['routeId'] as String? ?? id,
+      createdAt: json['created_at'] as Timestamp? ?? Timestamp.now(),
+      updatedAt: json['updated_at'] as Timestamp? ?? Timestamp.now(),
+      createdBy: json['created_by'] as String? ?? '',
+      start: Location.fromJson(Map<String, dynamic>.from(json['start'] ?? {})),
+      end: Location.fromJson(Map<String, dynamic>.from(json['end'] ?? {})),
+      name: json['name'] as String? ?? 'Unnamed Route',
+      waypoints:
+          (json['waypoints'] as List<dynamic>?)
+              ?.map(
+                (e) => Waypoint.fromJson(Map<String, dynamic>.from(e as Map)),
+              )
+              .toList() ??
+          [],
+      routeData: {
+        'distance': _toDouble(
+          json['totalDistance'] ?? json['routeData']?['totalDistance'],
+        ),
+        'encodedPolyline':
+            (json['encodedPolyline'] ?? json['routeData']?['encodedPolyline'])
+                ?.toString() ??
+            '',
+        'totalDistance': _toDouble(
+          json['totalDistance'] ?? json['routeData']?['totalDistance'],
+        ),
+      },
+      status: json['status'] as String? ?? 'planned',
+      currentWaypointIndex: json['currentWaypointIndex'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'created_at': createdAt,
+      'updated_at': updatedAt,
+      'created_by': createdBy,
+      'start': start.toJson(),
+      'end': end.toJson(),
+      'name': name,
+      'waypoints': waypoints.map((e) => e.toJson()).toList(),
+      'totalDistance': routeData['distance'],
+      'encodedPolyline': routeData['encodedPolyline'],
+      'status': status,
+      'currentWaypointIndex': currentWaypointIndex,
+    };
+  }
+
+  static RouteModel fromDocument(DocumentSnapshot doc) {
+    debugPrint('Parsing RouteModel from doc: ${doc.id}');
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) {
+      debugPrint('Document data is null for ${doc.id}');
+      return RouteModel(
+        id: doc.id,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        createdBy: '',
+        start: const Location(
+          address: '',
+          coordinate: Coordinate(lat: 0, lng: 0),
+        ),
+        end: const Location(
+          address: '',
+          coordinate: Coordinate(lat: 0, lng: 0),
+        ),
+        name: 'Error Route',
+        waypoints: [],
+        routeData: {},
+      );
+    }
+    try {
+      debugPrint('RouteModel data: $data');
+      return RouteModel.fromJson(data, id: doc.id);
+    } catch (e, stack) {
+      debugPrint('Error parsing RouteModel ${doc.id}: $e');
+      debugPrint('Stack trace: $stack');
+      rethrow;
+    }
+  }
+}
+
+class UserModel {
+  final String id;
+  final String email;
+  final List<String> routeIds;
+
+  UserModel({required this.id, required this.email, required this.routeIds});
+
+  factory UserModel.fromDocument(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) {
+      return UserModel(id: doc.id, email: '', routeIds: []);
+    }
+    return UserModel(
+      id: doc.id,
+      email: data['email']?.toString() ?? '',
+      routeIds: List<String>.from(data['routeIds'] ?? []),
     );
   }
 }

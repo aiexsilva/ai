@@ -3,7 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:route_finder/components/components.dart';
 import 'package:route_finder/logic/firebase_helper.dart';
 import 'package:route_finder/logic/helpers.dart';
-import 'package:route_finder/pages/dashboard/dashboard_page.dart';
+import 'package:route_finder/pages/navigation/main_scaffold.dart';
 import 'package:toastification/toastification.dart';
 
 class LoginPage extends StatefulWidget {
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                           return;
                         }
 
-                        context.pushAnimated(const DashboardPage());
+                        context.pushAnimated(const MainScaffold());
                       },
                       variant: AppButtonVariant.outline,
                     ),
@@ -208,7 +208,7 @@ class _LoginFieldsPageState extends State<LoginFieldsPage> {
 
       if (!mounted) return;
 
-      context.pushAnimated(DashboardPage());
+      context.pushAnimated(MainScaffold());
     } catch (e) {
       if (!mounted) return;
 

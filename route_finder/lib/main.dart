@@ -2,10 +2,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart' show dotenv;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:route_finder/firebase_options.dart';
 import 'package:route_finder/logic/firebase_helper.dart';
-import 'package:route_finder/pages/dashboard/dashboard_page.dart';
+import 'package:route_finder/pages/navigation/main_scaffold.dart';
 import 'package:route_finder/pages/landing/landing_page.dart';
 
 void main() async {
@@ -49,7 +48,7 @@ class MyApp extends StatelessWidget {
               if (user == null) {
                 return const LandingPage();
               } else {
-                return const DashboardPage();
+                return const MainScaffold();
               }
             }
             return const Center(child: CircularProgressIndicator());

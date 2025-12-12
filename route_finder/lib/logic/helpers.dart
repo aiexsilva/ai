@@ -301,7 +301,7 @@ Future<Position> getCurrentLocation() async {
 }
 
 extension CapitalizeFirst on String {
-  String capitalizeFirst() => this[0].toUpperCase() + this.substring(1);
+  String capitalizeFirst() => this[0].toUpperCase() + substring(1);
   String capitalizeFirstLetters() =>
       split(" ").map((e) => e.capitalizeFirst()).join(" ");
 }

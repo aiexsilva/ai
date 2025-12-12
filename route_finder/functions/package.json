@@ -20,7 +20,8 @@
     "firebase-functions": "^7.0.1",
     "google-auth-library": "^9.0.0",
     "googleapis": "^126.0.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "ngeohash": "^0.6.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

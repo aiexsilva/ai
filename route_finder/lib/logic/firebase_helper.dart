@@ -8,8 +8,6 @@ import 'package:route_finder/logic/google_places_models.dart';
 import 'package:route_finder/logic/helpers.dart';
 import 'package:route_finder/logic/models.dart';
 
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-
 class FirebaseHelper {
   FirebaseHelper._();
 
@@ -202,6 +200,7 @@ class FirebaseHelper {
 
   static Future<Map<String, dynamic>> finalizeRouteCreation({
     required List<GooglePlace> selectedPlaces,
+    required String routeName,
     Location? start,
     Location? end,
   }) async {
@@ -215,6 +214,7 @@ class FirebaseHelper {
 
       var callable = functions.httpsCallable('finalizeRouteCreation');
       var result = await callable.call({
+        'name': routeName,
         'selectedPlaces': selectedPlaces
             .map(
               (place) => {
@@ -252,6 +252,78 @@ class FirebaseHelper {
     } catch (e) {
       debugPrint("Error finalizing route creation: $e");
       return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteRoute({
+    required String routeId,
+  }) async {
+    try {
+      debugPrint('Deleting route $routeId...');
+      var callable = functions.httpsCallable('deleteRoute');
+      var result = await callable.call({'routeId': routeId});
+      debugPrint('Route deleted successfully: $result');
+      return result.data as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('Error deleting route: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  static Future<void> updateRouteStatus(String routeId, String status) async {
+    try {
+      debugPrint('Updating route status via Cloud Function...');
+      var callable = functions.httpsCallable('updateRouteStatus');
+      await callable.call({'routeId': routeId, 'status': status});
+      debugPrint('Route status updated successfully.');
+    } catch (e) {
+      debugPrint('Error updating route status: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> updateWaypointStatus(
+    String routeId,
+    int waypointIndex, {
+    bool? visited,
+    bool? skipped,
+  }) async {
+    debugPrint('Updating waypoint status via Cloud Function...');
+    try {
+      debugPrint('Updating waypoint status via Cloud Function...');
+      var callable = functions.httpsCallable('updateWaypointStatus');
+      await callable.call({
+        'routeId': routeId,
+        'waypointIndex': waypointIndex,
+        'visited': visited ?? false,
+        'skipped': skipped ?? false,
+      });
+      debugPrint('Waypoint status updated successfully.');
+    } catch (e) {
+      debugPrint('Error updating waypoint status: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> rateRoute({
+    required String routeId,
+    required int routeRating,
+    String? routeReview,
+    required List<Map<String, dynamic>> placesRatings,
+  }) async {
+    try {
+      debugPrint('Rating route $routeId via Cloud Function...');
+      var callable = functions.httpsCallable('rateRoute');
+      await callable.call({
+        'routeId': routeId,
+        'routeRating': routeRating,
+        'routeReview': routeReview,
+        'placesRatings': placesRatings,
+      });
+      debugPrint('Route rated successfully.');
+    } catch (e) {
+      debugPrint('Error rating route: $e');
+      rethrow;
     }
   }
 }

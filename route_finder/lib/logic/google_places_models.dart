@@ -131,7 +131,7 @@ class GooglePlace {
       'name': name,
       'opening_hours': openingHours?.toJson(),
       'photos': photos.map((e) => e.toJson()).toList(),
-      'place_id': placeId,
+      'placeId': placeId,
       'price_level': priceLevel,
       'rating': rating,
       'reference': reference,
@@ -141,19 +141,6 @@ class GooglePlace {
       'vicinity': vicinity,
       'summary': summary,
     };
-  }
-}
-
-extension GooglePlaceToPOI on GooglePlace {
-  POI toPOI() {
-    return POI(
-      name: name,
-      rating: rating,
-      coordinate: geometry?.location ?? const Coordinate(lat: 0, lng: 0),
-      description: vicinity,
-      keywords: types,
-      imagePath: '',
-    );
   }
 }
 
