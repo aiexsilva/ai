@@ -42,6 +42,17 @@ Follow these steps to set up and run the Route Finder application locally.
 
 3.  **Run the Application**
     For the best performance and stability, launch the application in release mode:
+
+    **For macOS Users:**
+    Open the Simulator and run:
     ```bash
     flutter run --release
     ```
+
+    **For Windows Users:**
+    Open Android Studio, start a virtual device (AVD), and run:
+    ```bash
+    flutter run --release
+    ```
+    
+    > **Note:** You can also run the application in a personal device, but you will need to enable USB debugging and connect your device to your computer.
