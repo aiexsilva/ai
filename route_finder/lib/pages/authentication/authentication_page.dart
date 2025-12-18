@@ -257,7 +257,7 @@ class _AuthenticationPageState extends State<AuthenticationPage>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           AppText(
-                            "Path",
+                            "Route",
                             variant: AppTextVariant.display,
                             colorOverride: AppColor.secondary,
                           ),

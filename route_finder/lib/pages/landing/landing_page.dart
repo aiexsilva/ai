@@ -184,7 +184,7 @@ class _LandingPageState extends State<LandingPage>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         AppText(
-                          "Path",
+                          "Route",
                           variant: AppTextVariant.display,
                           colorOverride: AppColor.secondary,
                         ),

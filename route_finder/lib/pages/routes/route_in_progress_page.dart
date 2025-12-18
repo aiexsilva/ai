@@ -599,6 +599,8 @@ class _RouteInProgressPageState extends State<RouteInProgressPage> {
                           ),
                         ],
                       ),
+
+                      SizedBox(height: AppSpacings.xl),
                     ],
                   ),
                 ),
